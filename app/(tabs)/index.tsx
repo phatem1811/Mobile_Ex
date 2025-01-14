@@ -1,18 +1,28 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native'; 
-import { createStackNavigator } from '@react-navigation/stack';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 
-import IntroPage from './introduce'; 
-import HomePage from './homepage'; 
-
-const Stack = createStackNavigator();
-
-export default function App() {
-
+const HomePage = () => {
+  const router = useRouter();
   return (
-    <Stack.Navigator initialRouteName="Intro">
-        <Stack.Screen name="Intro" component={IntroPage} />
-        <Stack.Screen name="Home" component={HomePage} />
-    </Stack.Navigator>
-); 
-}
+    <View style={styles.container}>
+      <Text style={styles.text}>Welcome to the Homepage!</Text>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+  text: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+});
+
+export default HomePage;
