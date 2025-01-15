@@ -47,6 +47,10 @@ export default function RootLayout() {
             name="auth/VerifyOtpScreen"
             options={{ headerShown: false }} 
           />
+          <Stack.Screen
+            name="auth/VerifyResetPassScreen"
+            options={{ headerShown: false }} 
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
       )}

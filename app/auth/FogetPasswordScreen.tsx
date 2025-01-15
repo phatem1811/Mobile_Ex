@@ -6,12 +6,17 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useRouter } from "expo-router";
+import api from "../../api";
+import axios from "axios";
 
 const ForgetPasswordPage = () => {
+  const [isLoading, setIsLoading] = useState(false);
   const [form, setForm] = useState({
     phone: "",
     email: "",
@@ -46,9 +51,38 @@ const ForgetPasswordPage = () => {
     return isValid;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validateForm()) {
-      router.push("/auth/VerifyOtpScreen");
+      try {
+        setIsLoading(true);
+        const response = await api.post("/v1/account/reset-password", {
+          phonenumber: form.phone,
+          email: form.email,
+        });
+
+        router.push({
+          pathname: "/auth/VerifyResetPassScreen",
+          params: {
+            phone: form.phone,
+            email: form.email,
+          },
+        });
+      } catch (err) {
+        if (axios.isAxiosError(err) && err.response?.data) {
+          Alert.alert(
+            "Lỗi",
+            err.response?.data.message || "Yêu cầu  thất bại."
+          );
+        } else {
+          Alert.alert(
+            "Lỗi",
+            "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau."
+          );
+        }
+      } finally {
+        setIsLoading(false);
+      }
+
       console.log("Form submitted:", form);
     }
   };
@@ -98,10 +132,14 @@ const ForgetPasswordPage = () => {
             ) : null}
           </View>
           <View style={styles.formAction}>
-            <TouchableOpacity onPress={handleSubmit}>
-              <View style={styles.btn}>
-                <Text style={styles.btnText}>Khôi phục mật khẩu</Text>
-              </View>
+            <TouchableOpacity onPress={handleSubmit} style={styles.btn}>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" ></ActivityIndicator>
+              ) : (
+                <View>
+                  <Text style={styles.btnText}>Khôi phục mật khẩu</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>

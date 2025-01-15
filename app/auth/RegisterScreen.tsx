@@ -6,11 +6,18 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useRouter } from "expo-router";
 import Icon from "react-native-vector-icons/Ionicons";
+import { useNavigation } from "@react-navigation/native";
+import api from "../../api";
+import axios from "axios";
 const RegisterPage = () => {
+  const navigation = useNavigation();
+
   const [form, setForm] = useState({
     phone: "",
     email: "",
@@ -25,7 +32,7 @@ const RegisterPage = () => {
     password: "",
     confirmPassword: "",
   });
-
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const validateForm = () => {
@@ -56,14 +63,41 @@ const RegisterPage = () => {
 
     setErrorMessages(errors);
 
-    return !Object.values(errors).some((error) => error); // Nếu không có lỗi, trả về true
+    return !Object.values(errors).some((error) => error);
   };
 
-  // Hàm xử lý khi submit form
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validateForm()) {
-      console.log("Form submitted:", form); // Log dữ liệu hợp lệ
-      router.push("/auth/VerifyOtpScreen"); // Điều hướng sang màn hình verifyOTP
+      try {
+        setIsLoading(true);
+        const response = await api.post("/v1/account/send-otp", {
+          phonenumber: form.phone,
+          email: form.email,
+          password: form.password,
+          fullname: form.fullName,
+        });
+
+        router.push({
+          pathname: "/auth/VerifyOtpScreen",
+          params: {
+            phone: form.phone,
+            email: form.email,
+            password: form.password,
+            fullName: form.fullName,
+          },
+        });
+      } catch (err) {
+        if (axios.isAxiosError(err) && err.response?.data) {
+          Alert.alert("Lỗi", err.response?.data.message || "Đăng ký thất bại.");
+        } else {
+          Alert.alert(
+            "Lỗi",
+            "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau."
+          );
+        }
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -164,10 +198,14 @@ const RegisterPage = () => {
             )}
           </View>
           <View style={styles.formAction}>
-            <TouchableOpacity onPress={handleSubmit}>
-              <View style={styles.btn}>
-                <Text style={styles.btnText}>Đăng ký</Text>
-              </View>
+            <TouchableOpacity onPress={handleSubmit} style={styles.btn}>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" /> 
+              ) : (
+                <View >
+                  <Text style={styles.btnText}>Đăng ký</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -287,6 +325,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
+  },
+  button: {
+    backgroundColor: "#075eec",
+    borderRadius: 30,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonText: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "600",
   },
 });
 

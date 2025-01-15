@@ -1,44 +1,87 @@
 import React, { useState, useEffect, useRef } from "react";
-import { StyleSheet, SafeAreaView, View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import {
+  StyleSheet,
+  SafeAreaView,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-
+import api from "../../api";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import axios from "axios";
+import * as Burnt from "burnt";
 const OtpPage = () => {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
-  const [timeLeft, setTimeLeft] = useState(300); // 5 phút = 300 giây
-  const inputRefs = useRef<(TextInput | null)[]>([]); // Lưu trữ tham chiếu đến các ô nhập OTP
+  const [timeLeft, setTimeLeft] = useState(300);
+  const inputRefs = useRef<(TextInput | null)[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const data = useLocalSearchParams();
 
   const handleChange = (text: string, index: number) => {
     const newOtp = [...otp];
     newOtp[index] = text;
     setOtp(newOtp);
-
-    // Chuyển focus sang ô tiếp theo khi người dùng nhập
     if (text.length === 1 && index < otp.length - 1) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
-  const handleSubmit = () => {
-    const otpCode = otp.join("");
-    console.log("OTP Code:", otpCode);
-
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    const otpCode = parseInt(otp.join(""), 10);
+    if (isNaN(otpCode)) {
+      Alert.alert("Lỗi", "Mã OTP không hợp lệ.");
+      return;
+    }
     if (timeLeft <= 0) {
       Alert.alert("Thông báo", "Mã xác nhận đã hết hạn. Vui lòng thử lại.");
       return;
     }
+    try {
+      console.log("check data", data, otpCode);
+      const response = await api.post("/v1/account/verify-otp", {
+        phonenumber: data.phone,
+        email: data.email,
+        password: data.password,
+        fullname: data.fullName,
+        otp: otpCode,
+      });
 
-    // Thực hiện logic xác thực OTP
-    Alert.alert("Xác nhận OTP", `Mã OTP của bạn là: ${otpCode}`);
+      router.push("/(tabs)/login");
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data) {
+        Alert.alert("Lỗi", err.response?.data.message || "Đăng ký thất bại.");
+      } else {
+        Alert.alert(
+          "Lỗi",
+          "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau."
+        );
+      }
+    } finally {
+      Burnt.toast({
+        title: "Đăng ký thành công.",
+        preset: "done",
+        message: "Chào mừng bạn đến với ứng dụng.",
+        duration: 2,
+        from: "top",
+      });
+
+      setIsLoading(false);
+    }
   };
 
-  // Đếm ngược thời gian
   useEffect(() => {
     if (timeLeft > 0) {
       const timer = setInterval(() => {
         setTimeLeft((prevTime) => prevTime - 1);
       }, 1000);
 
-      return () => clearInterval(timer); // Xóa timer khi component unmount
+      return () => clearInterval(timer);
     }
   }, [timeLeft]);
 
@@ -74,8 +117,18 @@ const OtpPage = () => {
         <Text style={styles.timer}>
           Thời gian còn lại: {formatTime(timeLeft)}
         </Text>
-        <TouchableOpacity onPress={handleSubmit} style={styles.btn}>
+        {/* <TouchableOpacity onPress={handleSubmit} style={styles.btn}>
           <Text style={styles.btnText}>Xác nhận</Text>
+        </TouchableOpacity> */}
+
+        <TouchableOpacity onPress={handleSubmit} style={styles.btn}>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <View>
+              <Text style={styles.btnText}>Xác nhận</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </KeyboardAwareScrollView>
     </SafeAreaView>
