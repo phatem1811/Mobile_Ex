@@ -16,7 +16,9 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Icon from "react-native-vector-icons/Ionicons";
-
+import api from "../../api";
+import { Toast } from "toastify-react-native"; 
+import * as Burnt from 'burnt';
 const LoginPage = () => {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -67,12 +69,13 @@ const LoginPage = () => {
   };
 
   const handleLogin = async () => {
+    
     if (!validateForm()) return;
 
     try {
       setIsLoading(true);
-      const response = await axios.post(
-        "http://192.168.1.4:8080/v1/account/login",
+      const response = await api.post(
+        "/v1/account/login",
         {
           phonenumber: form.phonenumber,
           password: form.password,
@@ -82,7 +85,9 @@ const LoginPage = () => {
       const token = response.data.accountLogin.access_token;
       if (token) {
         await AsyncStorage.setItem("token", token);
+        
         router.push("/(tabs)");
+        
       }
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data) {
@@ -94,6 +99,14 @@ const LoginPage = () => {
         );
       }
     } finally {
+      Burnt.toast({
+        title: 'Đăng nhập thành công.',
+        preset: 'done',
+        message: 'Chào mừng bạn đến với ứng dụng.',
+        duration: 2, 
+        from: 'top', 
+      });
+    
       setIsLoading(false);
     }
   };

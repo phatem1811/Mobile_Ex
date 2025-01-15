@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, Button } from 'react-native';
-import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
-
+import React, { useState, useEffect } from "react";
+import { View, Text, Image, StyleSheet, Button } from "react-native";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import * as Burnt from "burnt";
 const IntroPage = () => {
   const [token, setToken] = useState<string | null>(null);
   const router = useRouter();
@@ -11,31 +11,36 @@ const IntroPage = () => {
   useFocusEffect(
     React.useCallback(() => {
       const checkToken = async () => {
-        const storedToken = await AsyncStorage.getItem('token');
+        const storedToken = await AsyncStorage.getItem("token");
         setToken(storedToken); // Cập nhật giá trị token
         console.log("check token", storedToken);
       };
 
-      checkToken(); 
+      checkToken();
 
-      return () => {
-
-      };
+      return () => {};
     }, [])
   );
 
   const handleLogin = () => {
-    router.push('/(tabs)/login');
+    router.push("/(tabs)/login");
   };
 
   const handleRegister = () => {
-    router.push('/auth/RegisterScreen');
+    router.push("/auth/RegisterScreen");
   };
 
   const handleLogout = async () => {
-    await AsyncStorage.removeItem('token'); 
-    setToken(null); 
-    router.push('/(tabs)/login'); 
+    await AsyncStorage.removeItem("token");
+    setToken(null);
+    Burnt.toast({
+      title: "Đăng xuất thành công.",
+      preset: "done",
+      message: "Chào mừng bạn đến với ứng dụng.",
+      duration: 2,
+      from: "top",
+    });
+    router.push("/(tabs)/login");
   };
 
   if (!token) {
@@ -56,7 +61,7 @@ const IntroPage = () => {
     <View style={styles.container}>
       <Image
         style={styles.profileImage}
-        source={require('../../assets/images/iconuser.png')}
+        source={require("../../assets/images/iconuser.png")}
       />
       <Text style={styles.name}>Họ và Tên: Huỳnh Tiến Phát</Text>
       <Text style={styles.introduction}>
@@ -74,9 +79,9 @@ const IntroPage = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f8ff',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f0f8ff",
     padding: 20,
   },
   profileImage: {
@@ -87,31 +92,31 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   introduction: {
     fontSize: 18,
     marginTop: 10,
-    color: '#555',
-    textAlign: 'center',
+    color: "#555",
+    textAlign: "center",
     marginHorizontal: 20,
   },
   hobby: {
     fontSize: 16,
     marginTop: 15,
-    color: '#777',
+    color: "#777",
   },
   title: {
     fontSize: 20,
     marginBottom: 20,
-    color: '#333',
+    color: "#333",
   },
   buttonContainer: {
-    width: '100%',
+    width: "100%",
     marginBottom: 10,
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
 });
 
