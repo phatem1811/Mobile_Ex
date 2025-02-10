@@ -71,7 +71,7 @@ const LoginPage = () => {
   const handleLogin = async () => {
     
     if (!validateForm()) return;
-
+    let isSuccess = false;
     try {
       setIsLoading(true);
       const response = await api.post(
@@ -85,7 +85,7 @@ const LoginPage = () => {
       const token = response.data.accountLogin.access_token;
       if (token) {
         await AsyncStorage.setItem("token", token);
-        
+        isSuccess = true; 
         router.push("/(tabs)");
         
       }
@@ -99,13 +99,15 @@ const LoginPage = () => {
         );
       }
     } finally {
-      Burnt.toast({
-        title: 'Đăng nhập thành công.',
-        preset: 'done',
-        message: 'Chào mừng bạn đến với ứng dụng.',
-        duration: 2, 
-        from: 'top', 
-      });
+      if (isSuccess) {
+        Burnt.toast({
+          title: "Đăng nhập thành công.",
+          preset: "done",
+          message: "Chào mừng bạn đến với ứng dụng.",
+          duration: 2,
+          from: "top",
+        });
+      }
     
       setIsLoading(false);
     }
