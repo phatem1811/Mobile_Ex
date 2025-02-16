@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Image, StyleSheet, Button, Alert } from "react-native";
+import { View, Text, Image, StyleSheet, Button, Alert, Platform } from "react-native";
 import { TextInput, TouchableOpacity } from "react-native";
 import { Avatar } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
-
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
@@ -16,12 +16,16 @@ const IntroPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
   const [isFormChanged, setIsFormChanged] = useState(false);
+
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   const [form, setForm] = useState({
     fullname: "",
     phonenumber: "",
     email: "",
     address: "",
     point: "",
+    birthdate: new Date(), 
   });
 
   useFocusEffect(
@@ -39,12 +43,18 @@ const IntroPage = () => {
           });
           console.log("User Info:", response.data._idr);
           setUserInfo(response.data._id);
+
+          const parsedBirthday = response.data.birthdate && !isNaN(new Date(response.data.birthdate).getTime())
+            ? new Date(response.data.birthdate)
+            : new Date();
+
           setForm({
             fullname: response.data.fullname || "",
             phonenumber: response.data.phonenumber || "",
             email: response.data.email || "",
             address: response.data.address || "",
             point: response.data.point || "",
+            birthdate: parsedBirthday,
           });
           console.log("check form:", form);
         }
@@ -65,6 +75,13 @@ const IntroPage = () => {
     });
   };
 
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      handleChange('birthdate', selectedDate);
+    }
+  };
+
   const handleLogin = () => {
     router.push("/(tabs)/login");
   };
@@ -76,6 +93,7 @@ const IntroPage = () => {
       const response = await api.put(`/v1/account/${userInfo}`, {
         fullname: form.fullname,
         address: form.address,
+        birthdate: form.birthdate.toISOString(),
       });
 
       isSuccess = true;
@@ -125,6 +143,12 @@ const IntroPage = () => {
   if (!token) {
     return (
       <View style={styles.container}>
+        <Image
+          alt="Logo ứng dụng"
+          resizeMode="contain"
+          style={styles.headerImg}
+          source={require("../../assets/images/logo1.png")}
+        />
         <Text style={styles.title}>Vui lòng đăng nhập</Text>
         <View style={styles.buttonContainer}>
           <Button title="Đăng nhập" onPress={handleLogin} color="#4CAF50" />
@@ -222,6 +246,34 @@ const IntroPage = () => {
         />
       </View>
 
+      {/* Ngày sinh */}
+      <Text style={{ fontSize: 14, color: "#777" }}>Ngày sinh</Text>
+      <TouchableOpacity
+        onPress={() => setShowDatePicker(true)}
+        style={{
+          borderBottomWidth: 1,
+          borderBottomColor: "black",
+          paddingVertical: 8,
+          marginBottom: 10,
+        }}
+      >
+        <Text style={{ fontSize: 16 }}>
+        {form.birthdate instanceof Date && !isNaN(form.birthdate.getTime())
+      ? form.birthdate.toLocaleDateString("vi-VN")
+      : "Chưa chọn ngày sinh"}
+        </Text>
+      </TouchableOpacity>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={form.birthdate instanceof Date && !isNaN(form.birthdate.getTime()) ? form.birthdate : new Date()}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={onDateChange}
+          maximumDate={new Date()}
+        />
+      )}
+
       {/* <View style={styles.buttonContainer}>
         <Button title="Cập nhật" onPress={handleLogout} color="#4CAF50" />
       </View> */}
@@ -249,12 +301,14 @@ const IntroPage = () => {
 };
 
 const styles = StyleSheet.create({
+  headerImg: { width: 160, height: 160, marginBottom: 20 },
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f0f8ff",
     padding: 20,
+    paddingBottom: 0,
   },
   profileImage: {
     width: 150,
@@ -282,6 +336,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     marginBottom: 20,
+    marginTop: 0,
     color: "#333",
   },
   buttonContainer: {
