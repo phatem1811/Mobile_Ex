@@ -25,6 +25,7 @@ const images = [
 const HomePage = () => {
   const [activeSlide, setActiveSlide] = useState(0);
   const [category, setCategory] = useState<any[]>([]);
+  const [product, setProduct] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     const fetchCategories = async () => {
@@ -38,7 +39,19 @@ const HomePage = () => {
       }
     };
 
+    const fetchTop10Products = async () => {
+      try {
+        const response = await api.get("/v1/product/getTop10");
+        setProduct(response.data.products);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchCategories();
+    fetchTop10Products();
   }, []);
 
   // Define renderItem for the Carousel
@@ -47,6 +60,7 @@ const HomePage = () => {
       <Image source={images[index].source} style={styles.carouselImage} />
     </View>
   );
+
 
   const handleSearch = () => {
     // const searchText = searchInputValue; // You can store the search value in the state
@@ -102,6 +116,8 @@ const HomePage = () => {
           />
         ))}
       </View>
+      
+      {/* Categories */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -119,6 +135,29 @@ const HomePage = () => {
           <Text style={styles.emptyCategoryText}>Danh mục trống</Text>
         )}
       </ScrollView>
+
+      {/* Products */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.productsContainer}
+      >
+      {product.map((product) => {
+        console.log('Category picture URL:', product?.picture); // Log picture URL trước khi render
+        return (
+          <TouchableOpacity key={product.id} style={styles.productItem}>
+            <Image 
+              source={{ uri: product?.picture }} 
+              resizeMode="contain" 
+              style={styles.productImage} 
+              onError={(error) => console.log('Image load error:', error)}
+            />
+            <Text style={styles.productText}>{product.name}</Text>
+          </TouchableOpacity>
+        );
+      })}
+
+    </ScrollView>
 
       <View style={styles.content}>
         <Text style={styles.text}>Welcome to the Homepage!</Text>
@@ -179,6 +218,34 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
   },
+
+  
+
+
+  productsContainer: {
+    paddingVertical: 10,
+    //backgroundColor: '#000', // Background đen như ảnh mẫu
+  },
+  productItem: {
+    alignItems: 'center',
+    marginHorizontal: 10,
+  },
+  productImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40, // Hình tròn
+    borderWidth: 2,
+    // borderColor: '#000',
+  },
+  productText: {
+    marginTop: 5,
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+
+
+
   emptyCategoryText: {
     fontSize: 16,
     color: "#999",
