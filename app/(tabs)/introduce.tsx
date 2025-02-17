@@ -10,6 +10,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import * as Burnt from "burnt";
 import api from "../../api";
 import axios from "axios";
+
 const IntroPage = () => {
   const [token, setToken] = useState<string | null>(null);
   const router = useRouter();
