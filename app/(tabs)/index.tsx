@@ -136,6 +136,9 @@ const HomePage = () => {
         )}
       </ScrollView>
 
+      <View style={styles.content}>
+        <Text style={styles.text}>Top 10 sản phẩm bán chạy</Text>
+      </View>
       {/* Products */}
       <ScrollView
         horizontal
@@ -143,7 +146,6 @@ const HomePage = () => {
         style={styles.productsContainer}
       >
       {product.map((product) => {
-        console.log('Category picture URL:', product?.picture); // Log picture URL trước khi render
         return (
           <TouchableOpacity key={product.id} style={styles.productItem}>
             <Image 
@@ -199,7 +201,6 @@ const styles = StyleSheet.create({
   },
   categoriesContainer: {
     marginTop: 20,
-    marginBottom: 10,
     paddingLeft: 10,
   },
   categoryItem: {
@@ -218,24 +219,19 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
   },
-
-  
-
-
   productsContainer: {
     paddingVertical: 10,
-    //backgroundColor: '#000', // Background đen như ảnh mẫu
   },
   productItem: {
     alignItems: 'center',
     marginHorizontal: 10,
   },
   productImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40, // Hình tròn
+    width: 100,
+    height: 100,
+    borderRadius: 50, 
     borderWidth: 2,
-    // borderColor: '#000',
+    borderColor: '#484848',
   },
   productText: {
     marginTop: 5,
@@ -243,9 +239,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
-
-
-
   emptyCategoryText: {
     fontSize: 16,
     color: "#999",
