@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons"; // Import icon
 import api from "../../api";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 const { width } = Dimensions.get("window");
 
@@ -32,21 +32,31 @@ const HomePage = () => {
   const [token, setToken] = useState<string | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const router = useRouter();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkToken = async () => {
+        const storedToken = await AsyncStorage.getItem("token");
+        setToken(storedToken);
+        if (storedToken) {
+          const response = await api.get("/v1/account/profile", {
+            headers: {
+              Authorization: `Bearer ${storedToken}`,
+            },
+          });
+          console.log("User Info:", response.data._id);
+          if (response.data.avatar) setImageUri(response.data.avatar);
+        }
+        else {
+          setImageUri(null);
+        }
+      };
+      checkToken();
+      return () => {};
+    }, [])
+  );
   useEffect(() => {
-    const checkToken = async () => {
-      const storedToken = await AsyncStorage.getItem("token");
-      setToken(storedToken);
-      console.log("check token", storedToken);
-      if (storedToken) {
-        const response = await api.get("/v1/account/profile", {
-          headers: {
-            Authorization: `Bearer ${storedToken}`,
-          },
-        });
-        console.log("User Info:", response.data._id);
-        if (response.data.avatar) setImageUri(response.data.avatar);
-      }
-    };
+    
 
     const fetchCategories = async () => {
       try {
@@ -70,7 +80,6 @@ const HomePage = () => {
       }
     };
 
-    checkToken();
     fetchCategories();
     fetchTop10Products();
   }, []);
