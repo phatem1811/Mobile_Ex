@@ -21,7 +21,11 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo1.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -39,7 +43,9 @@
           "backgroundColor": "#ffffff"
         }
       ]
+
     ],
+
     "experiments": {
       "typedRoutes": true
     }

@@ -13,6 +13,8 @@ import Carousel from "react-native-reanimated-carousel"; // Import the new carou
 import { Ionicons } from "@expo/vector-icons"; // Import icon
 import api from "../../api";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get("window");
 
@@ -27,7 +29,25 @@ const HomePage = () => {
   const [category, setCategory] = useState<any[]>([]);
   const [product, setProduct] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const router = useRouter();
   useEffect(() => {
+    const checkToken = async () => {
+      const storedToken = await AsyncStorage.getItem("token");
+      setToken(storedToken);
+      console.log("check token", storedToken);
+      if (storedToken) {
+        const response = await api.get("/v1/account/profile", {
+          headers: {
+            Authorization: `Bearer ${storedToken}`,
+          },
+        });
+        console.log("User Info:", response.data._id);
+        if (response.data.avatar) setImageUri(response.data.avatar);
+      }
+    };
+
     const fetchCategories = async () => {
       try {
         const response = await api.get("/v1/category/list");
@@ -50,6 +70,7 @@ const HomePage = () => {
       }
     };
 
+    checkToken();
     fetchCategories();
     fetchTop10Products();
   }, []);
@@ -60,7 +81,9 @@ const HomePage = () => {
       <Image source={images[index].source} style={styles.carouselImage} />
     </View>
   );
-
+  const handleAvatarPress = () => {
+    router.push('/(tabs)/introduce');
+  };
 
   const handleSearch = () => {
     // const searchText = searchInputValue; // You can store the search value in the state
@@ -75,20 +98,24 @@ const HomePage = () => {
           source={require("../../assets/images/logo1.png")}
           style={styles.logo}
         />
-         <View style={styles.searchContainer}>
-    <TextInput
-      style={styles.searchInput}
-      placeholder="Tìm kiếm..."
-    />
-    <TouchableOpacity style={styles.searchIcon} onPress={handleSearch}>
-      <Ionicons name="search-outline" size={24} color="#333" />
-    </TouchableOpacity>
-  </View>
+        <View style={styles.searchContainer}>
+          <TextInput style={styles.searchInput} placeholder="Tìm kiếm..." />
+          <TouchableOpacity style={styles.searchIcon} onPress={handleSearch}>
+            <Ionicons name="search-outline" size={24} color="#333" />
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={24} color="#333" />
+          <Ionicons name="notifications-outline" size={24} color="#333F" />
         </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="person-circle-outline" size={28} color="#333" />
+        <TouchableOpacity onPress={handleAvatarPress}>
+          {imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={{ width: 28, height: 28, borderRadius: 14 }}
+            />
+          ) : (
+            <Ionicons name="person-circle-outline" size={28} color="#333" />
+          )}
         </TouchableOpacity>
       </View>
 
@@ -100,7 +127,7 @@ const HomePage = () => {
           autoPlay={true}
           data={images}
           renderItem={renderItem}
-          onSnapToItem={(index) => setActiveSlide(index)} 
+          onSnapToItem={(index) => setActiveSlide(index)}
         />
       </View>
 
@@ -116,7 +143,7 @@ const HomePage = () => {
           />
         ))}
       </View>
-      
+
       {/* Categories */}
       <ScrollView
         horizontal
@@ -145,21 +172,20 @@ const HomePage = () => {
         showsHorizontalScrollIndicator={false}
         style={styles.productsContainer}
       >
-      {product.map((product) => {
-        return (
-          <TouchableOpacity key={product.id} style={styles.productItem}>
-            <Image 
-              source={{ uri: product?.picture }} 
-              resizeMode="contain" 
-              style={styles.productImage} 
-              onError={(error) => console.log('Image load error:', error)}
-            />
-            <Text style={styles.productText}>{product.name}</Text>
-          </TouchableOpacity>
-        );
-      })}
-
-    </ScrollView>
+        {product.map((product) => {
+          return (
+            <TouchableOpacity key={product.id} style={styles.productItem}>
+              <Image
+                source={{ uri: product?.picture }}
+                resizeMode="contain"
+                style={styles.productImage}
+                onError={(error) => console.log("Image load error:", error)}
+              />
+              <Text style={styles.productText}>{product.name}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       <View style={styles.content}>
         <Text style={styles.text}>Welcome to the Homepage!</Text>
@@ -194,10 +220,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#ddd",
   },
   activeDot: {
-    backgroundColor: "#333", 
+    backgroundColor: "#333",
   },
   inactiveDot: {
-    backgroundColor: "#bbb", 
+    backgroundColor: "#bbb",
   },
   categoriesContainer: {
     marginTop: 20,
@@ -223,20 +249,20 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   productItem: {
-    alignItems: 'center',
+    alignItems: "center",
     marginHorizontal: 10,
   },
   productImage: {
     width: 100,
     height: 100,
-    borderRadius: 50, 
+    borderRadius: 50,
     borderWidth: 2,
-    borderColor: '#484848',
+    borderColor: "#484848",
   },
   productText: {
     marginTop: 5,
-    color: '#000',
-    fontWeight: 'bold',
+    color: "#000",
+    fontWeight: "bold",
     fontSize: 14,
   },
   emptyCategoryText: {
