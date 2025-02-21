@@ -8,11 +8,13 @@ import {
   Image,
   Dimensions,
   ScrollView,
-  SafeAreaView,
 } from "react-native";
-import Carousel from "react-native-reanimated-carousel";
-import { Ionicons } from "@expo/vector-icons";
+import Carousel from "react-native-reanimated-carousel"; // Import the new carousel library
+import { Ionicons } from "@expo/vector-icons"; // Import icon
 import api from "../../api";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get("window");
 
@@ -27,9 +29,25 @@ const HomePage = () => {
   const [category, setCategory] = useState<any[]>([]);
   const [product, setProduct] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-
+  const [token, setToken] = useState<string | null>(null);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const router = useRouter();
   useEffect(() => {
+    const checkToken = async () => {
+      const storedToken = await AsyncStorage.getItem("token");
+      setToken(storedToken);
+      console.log("check token", storedToken);
+      if (storedToken) {
+        const response = await api.get("/v1/account/profile", {
+          headers: {
+            Authorization: `Bearer ${storedToken}`,
+          },
+        });
+        console.log("User Info:", response.data._id);
+        if (response.data.avatar) setImageUri(response.data.avatar);
+      }
+    };
+
     const fetchCategories = async () => {
       try {
         const response = await api.get("/v1/category/list");
@@ -52,220 +70,143 @@ const HomePage = () => {
       }
     };
 
+    checkToken();
     fetchCategories();
     fetchTop10Products();
   }, []);
 
+  // Define renderItem for the Carousel
   const renderItem = ({ index }: { index: number }) => (
     <View style={styles.carouselItemContainer}>
       <Image source={images[index].source} style={styles.carouselImage} />
     </View>
   );
+  const handleAvatarPress = () => {
+    router.push('/(tabs)/introduce');
+  };
 
   const handleSearch = () => {
-    // Search handling logic here
+    // const searchText = searchInputValue; // You can store the search value in the state
+    // console.log('Search for:', searchText);
+    // Add your search handling logic here
   };
-
-  const formatPrice = (price: number) => {
-    return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " đ";
-  };
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {/* Header - Fixed at top */}
+    <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Image
           source={require("../../assets/images/logo1.png")}
           style={styles.logo}
         />
         <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm kiếm..."
-          />
+          <TextInput style={styles.searchInput} placeholder="Tìm kiếm..." />
           <TouchableOpacity style={styles.searchIcon} onPress={handleSearch}>
             <Ionicons name="search-outline" size={24} color="#333" />
           </TouchableOpacity>
         </View>
         <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={24} color="#333" />
+          <Ionicons name="notifications-outline" size={24} color="#333F" />
         </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="person-circle-outline" size={28} color="#333" />
+        <TouchableOpacity onPress={handleAvatarPress}>
+          {imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={{ width: 28, height: 28, borderRadius: 14 }}
+            />
+          ) : (
+            <Ionicons name="person-circle-outline" size={28} color="#333" />
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* Main Content - Scrollable */}
-      <ScrollView 
-        style={styles.mainContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Carousel Section */}
-        <View style={styles.carouselContainer}>
-          <Carousel
-            loop
-            width={width}
-            height={200}
-            autoPlay={true}
-            data={images}
-            renderItem={renderItem}
-            onSnapToItem={(index) => setActiveSlide(index)} 
+      <View style={styles.carouselContainer}>
+        <Carousel
+          loop
+          width={width}
+          height={200}
+          autoPlay={true}
+          data={images}
+          renderItem={renderItem}
+          onSnapToItem={(index) => setActiveSlide(index)}
+        />
+      </View>
+
+      {/* Dots indicator */}
+      <View style={styles.dotsContainer}>
+        {images.map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.dot,
+              activeSlide === index ? styles.activeDot : styles.inactiveDot,
+            ]}
           />
-        </View>
+        ))}
+      </View>
 
-        {/* Dots indicator */}
-        <View style={styles.dotsContainer}>
-          {images.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.dot,
-                activeSlide === index ? styles.activeDot : styles.inactiveDot,
-              ]}
-            />
-          ))}
-        </View>
-        
-        {/* Categories */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoriesContainer}
-        >
-          {loading ? (
-            <Text style={styles.emptyCategoryText}>Đang tải...</Text>
-          ) : Array.isArray(category) && category.length > 0 ? (
-            category.map((categoryItem, index) => (
-              <TouchableOpacity key={index} style={styles.categoryItem}>
-                <Text style={styles.categoryText}>{categoryItem.name}</Text>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <Text style={styles.emptyCategoryText}>Danh mục trống</Text>
-          )}
-        </ScrollView>
+      {/* Categories */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoriesContainer}
+      >
+        {loading ? (
+          <Text style={styles.emptyCategoryText}>Đang tải...</Text>
+        ) : Array.isArray(category) && category.length > 0 ? (
+          category.map((categoryItem, index) => (
+            <TouchableOpacity key={index} style={styles.categoryItem}>
+              <Text style={styles.categoryText}>{categoryItem.name}</Text>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={styles.emptyCategoryText}>Danh mục trống</Text>
+        )}
+      </ScrollView>
 
-        {/* Top 10 Products Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Top 10 sản phẩm bán chạy</Text>
-        </View>
-        
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.productsContainer}
-        >
-          {product.map((product) => (
-            <TouchableOpacity key={product._id} style={styles.productItem}>
-              <Image 
-                source={{ uri: product?.picture }} 
-                resizeMode="contain" 
-                style={styles.productImage} 
-                onError={(error) => console.log('Image load error:', error)}
+      <View style={styles.content}>
+        <Text style={styles.text}>Top 10 sản phẩm bán chạy</Text>
+      </View>
+      {/* Products */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.productsContainer}
+      >
+        {product.map((product) => {
+          return (
+            <TouchableOpacity key={product.id} style={styles.productItem}>
+              <Image
+                source={{ uri: product?.picture }}
+                resizeMode="contain"
+                style={styles.productImage}
+                onError={(error) => console.log("Image load error:", error)}
               />
               <Text style={styles.productText}>{product.name}</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Product By Category */}
-        {category.map((categoryItem) => (
-          <View key={categoryItem._id} style={styles.specialOffersContainer}>
-            <View style={styles.specialOffersHeader}>
-              <Text style={styles.specialOffersTitle}>{categoryItem.name}</Text>
-
-            </View>
-
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.specialOffersScroll}
-            >
-              {categoryItem.products.map((product: any) => (
-                <TouchableOpacity key={product._id} style={styles.offerCard}>
-                  <Image
-                    source={{ uri: product.picture }}
-                    style={styles.offerImage}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.offerContent}>
-                    <Text style={styles.offerName}>{product.name}</Text>
-                    <Text style={styles.offerDescription}>{product.description}</Text>
-                    <View style={styles.priceContainer}>
-                      <Text style={styles.currentPrice}>
-                        {formatPrice(product.currentPrice)}
-                      </Text>
-                      {product.price !== product.currentPrice && (
-                        <Text style={styles.originalPrice}>
-                          {formatPrice(product.price)}
-                        </Text>
-                      )}
-                    </View>
-                    <TouchableOpacity style={styles.addButton}>
-                      <Text style={styles.addButtonText}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        ))}
-
+          );
+        })}
       </ScrollView>
-    </SafeAreaView>
+
+      <View style={styles.content}>
+        <Text style={styles.text}>Welcome to the Homepage!</Text>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  mainContainer: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
+  logo: { width: 60, height: 50, marginRight: 10 },
   header: {
     marginTop: 30,
     flexDirection: "row",
     alignItems: "center",
     padding: 10,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
   },
-  logo: { 
-    width: 60, 
-    height: 50, 
-    marginRight: 10 
-  },
-  searchContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f4f4f4",
-    borderRadius: 20,
-    marginRight: 15,
-  },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    paddingHorizontal: 15,
-  },
-  searchIcon: {
-    padding: 10,
-  },
-  carouselContainer: {
-    marginVertical: 15,
-  },
-  carouselItemContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  carouselImage: {
-    width: width * 0.9,
-    height: 200,
-    borderRadius: 10,
-  },
+
+  carouselContainer: { marginVertical: 15 },
+  carouselItemContainer: { justifyContent: "center", alignItems: "center" },
+  carouselImage: { width: width * 0.9, height: 200, borderRadius: 10 },
   dotsContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -276,6 +217,7 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     marginHorizontal: 5,
+    backgroundColor: "#ddd",
   },
   activeDot: {
     backgroundColor: "#333",
@@ -303,25 +245,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
   },
-  emptyCategoryText: {
-    fontSize: 16,
-    color: "#999",
-    marginLeft: 10,
-  },
-  sectionHeader: {
-    padding: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-  },
   productsContainer: {
-    paddingLeft: 15,
+    paddingVertical: 10,
   },
   productItem: {
     alignItems: "center",
-    marginRight: 20,
+    marginHorizontal: 10,
   },
   productImage: {
     width: 100,
@@ -336,94 +265,32 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 14,
   },
-  specialOffersContainer: {
-    marginTop: 20,
-    paddingBottom: 30,
-  },
-  specialOffersHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    marginBottom: 10,
-  },
-  specialOffersTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  viewAll: {
-    color: "#FF6B6B",
-    fontSize: 14,
-  },
-  specialOffersScroll: {
-    paddingLeft: 15,
-  },
-  offerCard: {
-    width: 280,
-    backgroundColor: "white",
-    borderRadius: 12,
-    marginRight: 15,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  offerImage: {
-    width: "100%",
-    height: 150,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  offerContent: {
-    padding: 12,
-  },
-  offerName: {
+  emptyCategoryText: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
-  },
-  offerDescription: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 8,
-  },
-  priceContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  currentPrice: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#FF6B6B",
-    marginRight: 8,
-  },
-  originalPrice: {
-    fontSize: 14,
     color: "#999",
-    textDecorationLine: "line-through",
+    marginLeft: 10,
   },
-  addButton: {
-    position: "absolute",
-    right: 12,
-    bottom: 12,
-    backgroundColor: "#FF6B6B",
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: "center",
+  searchContainer: {
+    flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#f4f4f4",
+    borderRadius: 20,
+    flex: 1,
+    marginRight: 15,
   },
-  addButtonText: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: "bold",
+  searchInput: {
+    flex: 0.9,
+    height: 40,
+    borderWidth: 0,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    fontSize: 16,
   },
+  searchIcon: {
+    padding: 10,
+  },
+  content: { flex: 1, justifyContent: "center", alignItems: "center" },
+  text: { fontSize: 24, fontWeight: "bold" },
 });
 
 export default HomePage;

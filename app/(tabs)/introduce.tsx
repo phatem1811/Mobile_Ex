@@ -1,15 +1,27 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Image, StyleSheet, Button, Alert, Platform } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  Button,
+  Alert,
+  Platform,
+  ActivityIndicator ,
+} from "react-native";
 import { TextInput, TouchableOpacity } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { Avatar } from "react-native-paper";
 import { Picker } from "@react-native-picker/picker";
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Burnt from "burnt";
 import api from "../../api";
+import  { uploadImageToCloudinary } from"../../UploadToCloud"
 import axios from "axios";
+import { launchImageLibrary } from "react-native-image-picker";
 
 const IntroPage = () => {
   const [token, setToken] = useState<string | null>(null);
@@ -17,8 +29,10 @@ const IntroPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
   const [isFormChanged, setIsFormChanged] = useState(false);
-
+  const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const [imageUri, setImageUri] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     fullname: "",
@@ -26,7 +40,8 @@ const IntroPage = () => {
     email: "",
     address: "",
     point: "",
-    birthdate: new Date(), 
+    birthdate: new Date(),
+    avatar: ""
   });
 
   useFocusEffect(
@@ -42,12 +57,14 @@ const IntroPage = () => {
               Authorization: `Bearer ${storedToken}`,
             },
           });
-          console.log("User Info:", response.data._idr);
+          console.log("User Info:", response.data._id);
           setUserInfo(response.data._id);
 
-          const parsedBirthday = response.data.birthdate && !isNaN(new Date(response.data.birthdate).getTime())
-            ? new Date(response.data.birthdate)
-            : new Date();
+          const parsedBirthday =
+            response.data.birthdate &&
+            !isNaN(new Date(response.data.birthdate).getTime())
+              ? new Date(response.data.birthdate)
+              : new Date();
 
           setForm({
             fullname: response.data.fullname || "",
@@ -55,8 +72,10 @@ const IntroPage = () => {
             email: response.data.email || "",
             address: response.data.address || "",
             point: response.data.point || "",
+            avatar: response.data.avatar || "",
             birthdate: parsedBirthday,
           });
+          if(response.data.avatar) setImageUri(response.data.avatar);
           console.log("check form:", form);
         }
       };
@@ -79,7 +98,7 @@ const IntroPage = () => {
   const onDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
-      handleChange('birthdate', selectedDate);
+      handleChange("birthdate", selectedDate);
     }
   };
 
@@ -90,16 +109,18 @@ const IntroPage = () => {
     let isSuccess = false;
     console.log("check update", form);
     try {
+      console.log("check imageUri", imageUri);
       setIsLoading(true);
       const response = await api.put(`/v1/account/${userInfo}`, {
         fullname: form.fullname,
         address: form.address,
         birthdate: form.birthdate.toISOString(),
+        avatar: imageUri
       });
 
       isSuccess = true;
 
-      router.push("/(tabs)");
+      router.push("/(tabs)/introduce");
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data) {
         Alert.alert("Lỗi", err.response?.data.message || "Cập nhật thất bại.");
@@ -141,6 +162,80 @@ const IntroPage = () => {
     router.push("/(tabs)/login");
   };
 
+  // const requestPermissions = async () => {
+  //   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  //   if (status !== 'granted') {
+  //     alert('Sorry, we need camera roll permissions to make this work!');
+  //   }
+  // };
+  
+  // useEffect(() => {
+  //   requestPermissions();
+  // }, []);
+  const pickImage = async () => {
+    const action = await Alert.alert(
+      'Chọn ảnh',
+      'Chọn ảnh từ thư viện hoặc chụp ảnh mới',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Chọn ảnh từ thư viện',
+          onPress: async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              quality: 1,
+            });
+            if (!result.canceled && result.assets) {
+              const imageUri = result.assets[0].uri;
+              console.log('Selected image from library:', imageUri);
+
+              // Bắt đầu tải ảnh lên
+              setLoading(true);
+              try {
+                const uploadedImageUrl = await uploadImageToCloudinary(imageUri);
+                setImageUri(uploadedImageUrl);
+                console.log('Image uploaded to Cloudinary:', uploadedImageUrl);
+              } catch (error) {
+                console.error("Upload failed", error);
+              } finally {
+                setLoading(false); // Dừng loading
+              }
+            }
+          },
+        },
+        {
+          text: 'Chụp ảnh',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission required', 'Camera permission is required to take photos.');
+              return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+              quality: 1,
+            });
+            if (!result.canceled && result.assets) {
+              const imageUri = result.assets[0].uri;
+              console.log('Selected image from camera:', imageUri);
+
+              // Bắt đầu tải ảnh lên
+              setLoading(true);
+              try {
+                const uploadedImageUrl = await uploadImageToCloudinary(imageUri);
+                setImageUri(uploadedImageUrl);
+                console.log('Image uploaded to Cloudinary:', uploadedImageUrl);
+              } catch (error) {
+                console.error("Upload failed", error);
+              } finally {
+                setLoading(false); // Dừng loading
+              }
+            }
+          },
+        },
+      ]
+    );
+  };
   if (!token) {
     return (
       <View style={styles.container}>
@@ -166,10 +261,23 @@ const IntroPage = () => {
       style={{ flex: 1, padding: 20, marginTop: 30, backgroundColor: "#fff" }}
     >
       {/* Avatar */}
+
       <View style={{ alignItems: "center", marginBottom: 20 }}>
-        <Avatar.Icon size={80} icon="camera" />
-        <Text style={{ marginTop: 10, color: "#888" }}>{form.point} điểm</Text>
-      </View>
+      <TouchableOpacity onPress={pickImage}>
+        {loading ? (
+          // Hiển thị Loading Spinner khi đang upload
+          <ActivityIndicator size="large" color="#0000ff" />
+        ) : imageUri ? (
+          <Image
+            source={{ uri: imageUri }}
+            style={{ width: 80, height: 80, borderRadius: 40 }}
+          />
+        ) : (
+          <Avatar.Icon size={80} icon="camera" />
+        )}
+      </TouchableOpacity>
+      <Text style={{ marginTop: 10, color: "#888" }}>Điểm của bạn: {form.point} điểm</Text>
+    </View>
       <Text style={{ fontSize: 14, color: "#777" }}>Họ và tên</Text>
       {/* Tên */}
       <TextInput
@@ -259,15 +367,19 @@ const IntroPage = () => {
         }}
       >
         <Text style={{ fontSize: 16 }}>
-        {form.birthdate instanceof Date && !isNaN(form.birthdate.getTime())
-      ? form.birthdate.toLocaleDateString("vi-VN")
-      : "Chưa chọn ngày sinh"}
+          {form.birthdate instanceof Date && !isNaN(form.birthdate.getTime())
+            ? form.birthdate.toLocaleDateString("vi-VN")
+            : "Chưa chọn ngày sinh"}
         </Text>
       </TouchableOpacity>
 
       {showDatePicker && (
         <DateTimePicker
-          value={form.birthdate instanceof Date && !isNaN(form.birthdate.getTime()) ? form.birthdate : new Date()}
+          value={
+            form.birthdate instanceof Date && !isNaN(form.birthdate.getTime())
+              ? form.birthdate
+              : new Date()
+          }
           mode="date"
           display={Platform.OS === "ios" ? "spinner" : "default"}
           onChange={onDateChange}
