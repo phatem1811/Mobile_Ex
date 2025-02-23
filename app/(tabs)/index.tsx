@@ -9,14 +9,13 @@ import {
   Dimensions,
   ScrollView,
   SafeAreaView,
-
 } from "react-native";
 import Carousel from "react-native-reanimated-carousel"; // Import the new carousel library
 import { Ionicons } from "@expo/vector-icons"; // Import icon
 import api from "../../api";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from "expo-router";
 
 const { width } = Dimensions.get("window");
 
@@ -48,8 +47,7 @@ const HomePage = () => {
           });
           console.log("User Info:", response.data._id);
           if (response.data.avatar) setImageUri(response.data.avatar);
-        }
-        else {
+        } else {
           setImageUri(null);
         }
       };
@@ -58,8 +56,6 @@ const HomePage = () => {
     }, [])
   );
   useEffect(() => {
-    
-
     const fetchCategories = async () => {
       try {
         const response = await api.get("/v1/category/list");
@@ -93,7 +89,7 @@ const HomePage = () => {
     </View>
   );
   const handleAvatarPress = () => {
-    router.push('/(tabs)/introduce');
+    router.push("/(tabs)/introduce");
   };
 
   const handleSearch = () => {
@@ -115,10 +111,7 @@ const HomePage = () => {
           style={styles.logo}
         />
         <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm kiếm..."
-          />
+          <TextInput style={styles.searchInput} placeholder="Tìm kiếm..." />
           <TouchableOpacity style={styles.searchIcon} onPress={handleSearch}>
             <Ionicons name="search-outline" size={24} color="#333" />
           </TouchableOpacity>
@@ -139,7 +132,7 @@ const HomePage = () => {
       </View>
 
       {/* Main Content - Scrollable */}
-      <ScrollView 
+      <ScrollView
         style={styles.mainContainer}
         showsVerticalScrollIndicator={false}
       >
@@ -152,7 +145,7 @@ const HomePage = () => {
             autoPlay={true}
             data={images}
             renderItem={renderItem}
-            onSnapToItem={(index) => setActiveSlide(index)} 
+            onSnapToItem={(index) => setActiveSlide(index)}
           />
         </View>
 
@@ -168,7 +161,7 @@ const HomePage = () => {
             />
           ))}
         </View>
-        
+
         {/* Categories */}
         <ScrollView
           horizontal
@@ -192,23 +185,25 @@ const HomePage = () => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Top 10 sản phẩm bán chạy</Text>
         </View>
-        
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.productsContainer}
         >
-          {product.map((product) => (
-            <TouchableOpacity key={product._id} style={styles.productItem}>
-              <Image 
-                source={{ uri: product?.picture }} 
-                resizeMode="contain" 
-                style={styles.productImage} 
-                onError={(error) => console.log('Image load error:', error)}
-              />
-              <Text style={styles.productText}>{product.name}</Text>
-            </TouchableOpacity>
-          ))}
+          {product.map((product) => {
+            return (
+              <TouchableOpacity key={product.id} style={styles.productItem}>
+                <Image
+                  source={{ uri: product?.picture }}
+                  resizeMode="contain"
+                  style={styles.productImage}
+                  onError={(error) => console.log("Image load error:", error)}
+                />
+                <Text style={styles.productText}>{product.name}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {/* Product By Category */}
@@ -216,11 +211,10 @@ const HomePage = () => {
           <View key={categoryItem._id} style={styles.specialOffersContainer}>
             <View style={styles.specialOffersHeader}>
               <Text style={styles.specialOffersTitle}>{categoryItem.name}</Text>
-
             </View>
 
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.specialOffersScroll}
             >
@@ -233,7 +227,9 @@ const HomePage = () => {
                   />
                   <View style={styles.offerContent}>
                     <Text style={styles.offerName}>{product.name}</Text>
-                    <Text style={styles.offerDescription}>{product.description}</Text>
+                    <Text style={styles.offerDescription}>
+                      {product.description}
+                    </Text>
                     <View style={styles.priceContainer}>
                       <Text style={styles.currentPrice}>
                         {formatPrice(product.currentPrice)}
@@ -253,17 +249,15 @@ const HomePage = () => {
             </ScrollView>
           </View>
         ))}
-
       </ScrollView>
     </SafeAreaView>
-
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   mainContainer: {
     flex: 1,
@@ -393,7 +387,7 @@ const styles = StyleSheet.create({
     paddingLeft: 15,
   },
   offerCard: {
-    width: 280,
+    width: 200,
     backgroundColor: "white",
     borderRadius: 12,
     marginRight: 15,
@@ -408,7 +402,7 @@ const styles = StyleSheet.create({
   },
   offerImage: {
     width: "100%",
-    height: 150,
+    height: 100,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
