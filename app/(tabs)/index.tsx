@@ -124,10 +124,17 @@ const HomePage = () => {
           </TouchableOpacity>
         </View>
         <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={24} color="#333" />
+          <Ionicons name="notifications-outline" size={24} color="#333F" />
         </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="person-circle-outline" size={28} color="#333" />
+        <TouchableOpacity onPress={handleAvatarPress}>
+          {imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={{ width: 28, height: 28, borderRadius: 14 }}
+            />
+          ) : (
+            <Ionicons name="person-circle-outline" size={28} color="#333" />
+          )}
         </TouchableOpacity>
       </View>
 
