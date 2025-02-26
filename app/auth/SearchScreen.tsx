@@ -9,13 +9,15 @@ import {
   Dimensions,
   ScrollView,
   SafeAreaView,
+  FlatList,
 } from "react-native";
 import Carousel from "react-native-reanimated-carousel"; // Import the new carousel library
 import { Ionicons } from "@expo/vector-icons"; // Import icon
 import api from "../../api";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 
@@ -26,19 +28,17 @@ const images = [
 ];
 
 const HomePage = () => {
-  const [activeSlide, setActiveSlide] = useState(0);
-  const [category, setCategory] = useState<any[]>([]);
   const [product, setProduct] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const router = useRouter();
-
+  const dataSearch = useLocalSearchParams();
+  const [keyword, setKeyword] = useState(dataSearch.searchText || "");
   const [searchInputValue, setSearchInputValue] = useState("");
+  const navigation = useNavigation();
 
   useFocusEffect(
     React.useCallback(() => {
-      setSearchInputValue("");
       const checkToken = async () => {
         const storedToken = await AsyncStorage.getItem("token");
         setToken(storedToken);
@@ -59,62 +59,35 @@ const HomePage = () => {
     }, [])
   );
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await api.get("/v1/category/list");
-        setCategory(response.data.categories);
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    getProductbyName();
+  }, [keyword]);
 
-    const fetchTop10Products = async () => {
-      try {
-        const response = await api.get("/v1/product/getTop10");
-        setProduct(response.data.products);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const getProductbyName = async () => {
+    console.log("check func", keyword);
+    if (keyword) {
+      const response = await api.get(`/v1/product/search`, {
+        params: { name: keyword },
+      });
+      setProduct(response.data);
+    }
+  };
+  const handleSearch = () => {
+    setKeyword(searchInputValue);
+  };
 
-    fetchCategories();
-    fetchTop10Products();
-  }, []);
-
-  // Define renderItem for the Carousel
-  const renderItem = ({ index }: { index: number }) => (
-    <View style={styles.carouselItemContainer}>
-      <Image source={images[index].source} style={styles.carouselImage} />
-    </View>
-  );
+  const formatPrice = (price: number) => {
+    return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " đ";
+  };
   const handleAvatarPress = () => {
     router.push("/(tabs)/introduce");
   };
 
-  const handleSearch = () => {
-    if (!searchInputValue.trim()) return; // Kiểm tra nếu rỗng thì không tìm kiếm
-    console.log("search", searchInputValue);
-    router.push({
-      pathname: "/auth/SearchScreen",
-      params: { searchText: searchInputValue },
-    });
-  };
-  const formatPrice = (price: number) => {
-    return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " đ";
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header - Fixed at top */}
       <View style={styles.header}>
-        <Image
-          source={require("../../assets/images/logo1.png")}
-          style={styles.logo}
-        />
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -140,113 +113,39 @@ const HomePage = () => {
           )}
         </TouchableOpacity>
       </View>
-
-      {/* Main Content - Scrollable */}
-      <ScrollView
-        style={styles.mainContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Carousel Section */}
-        <View style={styles.carouselContainer}>
-          <Carousel
-            loop
-            width={width}
-            height={200}
-            autoPlay={true}
-            data={images}
-            renderItem={renderItem}
-            onSnapToItem={(index) => setActiveSlide(index)}
-          />
-        </View>
-
-        {/* Dots indicator */}
-        <View style={styles.dotsContainer}>
-          {images.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.dot,
-                activeSlide === index ? styles.activeDot : styles.inactiveDot,
-              ]}
-            />
-          ))}
-        </View>
-
-        {/* Categories */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoriesContainer}
-        >
-          {loading ? (
-            <Text style={styles.emptyCategoryText}>Đang tải...</Text>
-          ) : Array.isArray(category) && category.length > 0 ? (
-            category.map((categoryItem, index) => (
-              <TouchableOpacity key={index} style={styles.categoryItem}>
-                <Text style={styles.categoryText}>{categoryItem.name}</Text>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <Text style={styles.emptyCategoryText}>Danh mục trống</Text>
-          )}
-        </ScrollView>
-
-        {/* Top 10 Products Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Top 10 sản phẩm bán chạy</Text>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.productsContainer}
-        >
-          {product.map((product) => {
-            return (
-              <TouchableOpacity key={product.id} style={styles.productItem}>
-                <Image
-                  source={{ uri: product?.picture }}
-                  resizeMode="contain"
-                  style={styles.productImage}
-                  onError={(error) => console.log("Image load error:", error)}
-                />
-                <Text style={styles.productText}>{product.name}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Product By Category */}
-        {category.map((categoryItem) => (
-          <View key={categoryItem._id} style={styles.specialOffersContainer}>
+      {dataSearch.searchText ? (
+        product.length > 0 ? (
+          <View style={styles.specialOffersContainer}>
             <View style={styles.specialOffersHeader}>
-              <Text style={styles.specialOffersTitle}>{categoryItem.name}</Text>
+              <Text style={styles.specialOffersTitle}>
+                Kết quả tìm kiếm: {keyword}
+              </Text>
             </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.specialOffersScroll}
-            >
-              {categoryItem.products.map((product: any) => (
-                <TouchableOpacity key={product._id} style={styles.offerCard}>
+            <FlatList
+              data={product}
+              keyExtractor={(item) => item._id}
+              numColumns={2}
+              columnWrapperStyle={styles.row}
+              contentContainerStyle={{ paddingBottom: 100 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.offerCard}>
                   <Image
-                    source={{ uri: product.picture }}
+                    source={{ uri: item.picture }}
                     style={styles.offerImage}
                     resizeMode="cover"
                   />
                   <View style={styles.offerContent}>
-                    <Text style={styles.offerName}>{product.name}</Text>
+                    <Text style={styles.offerName}>{item.name}</Text>
                     <Text style={styles.offerDescription}>
-                      {product.description}
+                      {item.description}
                     </Text>
                     <View style={styles.priceContainer}>
                       <Text style={styles.currentPrice}>
-                        {formatPrice(product.currentPrice)}
+                        {formatPrice(item.currentPrice)}
                       </Text>
-                      {product.price !== product.currentPrice && (
+                      {item.price !== item.currentPrice && (
                         <Text style={styles.originalPrice}>
-                          {formatPrice(product.price)}
+                          {formatPrice(item.price)}
                         </Text>
                       )}
                     </View>
@@ -255,11 +154,15 @@ const HomePage = () => {
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              )}
+            />
           </View>
-        ))}
-      </ScrollView>
+        ) : (
+          <View style={styles.notFoundContainer}>
+            <Text style={styles.notFoundText}>Không tìm thấy sản phẩm</Text>
+          </View>
+        )
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -397,32 +300,29 @@ const styles = StyleSheet.create({
     paddingLeft: 15,
   },
   offerCard: {
-    width: 200,
+    flex: 0.5,
+    marginHorizontal: 5,
     backgroundColor: "white",
     borderRadius: 12,
-    marginRight: 15,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    paddingBottom: 10, 
+    paddingBottom: 10, // Thêm khoảng cách để tránh bị che khuất
   },
+
   offerImage: {
     width: "100%",
-    height: 100,
+    height: 120,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
   offerContent: {
-    flex: 1, 
+    flex: 1,
     padding: 12,
     justifyContent: "space-between", 
   },
-  
   offerName: {
     fontSize: 16,
     fontWeight: "bold",
@@ -437,7 +337,7 @@ const styles = StyleSheet.create({
   priceContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: "auto", // Đẩy giá xuống cuối card
+    marginTop: "auto", 
   },
   currentPrice: {
     fontSize: 16,
@@ -450,7 +350,6 @@ const styles = StyleSheet.create({
     color: "#999",
     textDecorationLine: "line-through",
   },
-
   addButton: {
     position: "absolute",
     right: 12,
@@ -468,8 +367,23 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
+  
   content: { flex: 1, justifyContent: "center", alignItems: "center" },
   text: { fontSize: 24, fontWeight: "bold" },
+  notFoundContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  notFoundText: {
+    fontSize: 16,
+    color: "#888",
+    fontWeight: "bold",
+  },
+  row: {
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
 });
 
 export default HomePage;

@@ -51,6 +51,10 @@ export default function RootLayout() {
             name="auth/VerifyResetPassScreen"
             options={{ headerShown: false }} 
           />
+           <Stack.Screen
+            name="auth/SearchScreen"
+            options={{ headerShown: false }} 
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
       )}
