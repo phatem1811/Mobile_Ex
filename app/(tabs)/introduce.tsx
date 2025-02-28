@@ -194,6 +194,7 @@ const IntroPage = () => {
               try {
                 const uploadedImageUrl = await uploadImageToCloudinary(imageUri);
                 setImageUri(uploadedImageUrl);
+                setIsFormChanged(true);
                 console.log('Image uploaded to Cloudinary:', uploadedImageUrl);
               } catch (error) {
                 console.error("Upload failed", error);
@@ -224,6 +225,7 @@ const IntroPage = () => {
               try {
                 const uploadedImageUrl = await uploadImageToCloudinary(imageUri);
                 setImageUri(uploadedImageUrl);
+                setIsFormChanged(true);
                 console.log('Image uploaded to Cloudinary:', uploadedImageUrl);
               } catch (error) {
                 console.error("Upload failed", error);
