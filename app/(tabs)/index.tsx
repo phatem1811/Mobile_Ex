@@ -107,6 +107,10 @@ const HomePage = () => {
     return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " đ";
   };
 
+  const handleProductPress = (id: string) => {
+    router.push(`/auth/product/${id}`);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Header - Fixed at top */}
@@ -229,7 +233,7 @@ const HomePage = () => {
               style={styles.specialOffersScroll}
             >
               {categoryItem.products.map((product: any) => (
-                <TouchableOpacity key={product._id} style={styles.offerCard}>
+                <TouchableOpacity key={product._id} style={styles.offerCard} onPress={() => handleProductPress(product._id)}>
                   <Image
                     source={{ uri: product.picture }}
                     style={styles.offerImage}

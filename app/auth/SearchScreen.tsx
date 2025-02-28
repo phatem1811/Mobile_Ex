@@ -18,7 +18,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useNavigation } from "@react-navigation/native";
-
+import ProductDetail from "./product/[id]";
 const { width } = Dimensions.get("window");
 
 const images = [
@@ -82,6 +82,10 @@ const HomePage = () => {
     router.push("/(tabs)/introduce");
   };
 
+  const handleProductPress = (id: string) => {
+    router.push(`/auth/product/${id}`);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -128,7 +132,7 @@ const HomePage = () => {
               columnWrapperStyle={styles.row}
               contentContainerStyle={{ paddingBottom: 100 }}
               renderItem={({ item }) => (
-                <TouchableOpacity style={styles.offerCard}>
+                <TouchableOpacity style={styles.offerCard} onPress={() => handleProductPress(item._id)}>
                   <Image
                     source={{ uri: item.picture }}
                     style={styles.offerImage}

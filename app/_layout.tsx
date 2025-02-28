@@ -55,6 +55,11 @@ export default function RootLayout() {
             name="auth/SearchScreen"
             options={{ headerShown: false }} 
           />
+          <Stack.Screen
+            name="auth/product/[id]"
+            //component={ProductDetail}
+            options={{ headerShown: false }} 
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
       )}
