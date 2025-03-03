@@ -10,12 +10,13 @@ import {
   ScrollView,
   SafeAreaView,
 } from "react-native";
-import Carousel from "react-native-reanimated-carousel"; // Import the new carousel library
-import { Ionicons } from "@expo/vector-icons"; // Import icon
+import Carousel from "react-native-reanimated-carousel"; 
+import { Ionicons } from "@expo/vector-icons"; 
 import api from "../../api";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
+import { useCart } from "../../hooks/useCart";
 
 const { width } = Dimensions.get("window");
 
@@ -32,6 +33,8 @@ const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
+
+  const { cart, addToCart } = useCart();
   const router = useRouter();
 
   const [searchInputValue, setSearchInputValue] = useState("");
@@ -132,6 +135,14 @@ const HomePage = () => {
         </View>
         <TouchableOpacity>
           <Ionicons name="notifications-outline" size={24} color="#333F" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/auth/CartScreen")}>
+          <Ionicons name="cart-outline" size={24} color="#333" style={styles.cartIcon} />
+          {cart.length > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>{cart.length}</Text>
+            </View>
+          )}
         </TouchableOpacity>
         <TouchableOpacity onPress={handleAvatarPress}>
           {imageUri ? (
@@ -441,7 +452,7 @@ const styles = StyleSheet.create({
   priceContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: "auto", // Đẩy giá xuống cuối card
+    marginTop: "auto",
   },
   currentPrice: {
     fontSize: 16,
@@ -474,6 +485,25 @@ const styles = StyleSheet.create({
 
   content: { flex: 1, justifyContent: "center", alignItems: "center" },
   text: { fontSize: 24, fontWeight: "bold" },
+  cartBadge: {
+    position: "absolute",
+    top: -5,
+    right: -1,
+    backgroundColor: "#FF6B6B",
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cartBadgeText: {
+    color: "white",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  cartIcon: {
+    marginRight: 4,
+  },
 });
 
 export default HomePage;

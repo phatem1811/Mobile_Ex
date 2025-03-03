@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import api from "../../../api";
+import { useCart } from "../../../hooks/useCart";
 
 const { width, height } = Dimensions.get("window");
 
@@ -19,6 +20,7 @@ const ProductDetail = () => {
   const { id } = useLocalSearchParams();
   const [product, setProduct] = useState<any>(null);
   const router = useRouter();
+  const { cart, addToCart } = useCart();
   useEffect(() => {
     const fetchProduct = async () => {
       try {
@@ -45,8 +47,18 @@ const ProductDetail = () => {
   };
 
   const handleAddToCart = () => {
-    console.log("Added to cart:", product.name);
+    addToCart({
+      _id: product._id,
+      name: product.name,
+      price: product.currentPrice,
+      picture: product.picture,
+      options: product.options,
+    });
+    console.log(`Added ${product.name} to cart`);
   };
+  
+  const cartItem = cart.find(item => item.id === product._id);
+  const quantityInCart = cartItem ? cartItem.quantity : 0;
 
   return (
     <SafeAreaView style={styles.container}>
