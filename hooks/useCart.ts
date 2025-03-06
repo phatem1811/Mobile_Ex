@@ -109,7 +109,7 @@ export const useCart = () => {
     });
   }, []);
 
-  console.log('cart', cart);
+  // console.log('cart', cart);
 
   return {
     cart,

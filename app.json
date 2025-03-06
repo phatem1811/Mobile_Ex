@@ -22,10 +22,7 @@
         "foregroundImage": "./assets/images/logo1.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": [
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ]
+      "permissions": ["READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
     },
     "web": {
       "bundler": "metro",
@@ -42,8 +39,13 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Ứng dụng cần quyền truy cập vị trí để hiển thị bản đồ và các dịch vụ liên quan."
+        }
       ]
-
     ],
 
     "experiments": {
