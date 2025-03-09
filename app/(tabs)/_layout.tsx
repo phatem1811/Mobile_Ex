@@ -7,7 +7,7 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import TabBarBackground from "@/components/ui/TabBarBackground";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { FontAwesome } from "@expo/vector-icons";
+import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -37,12 +37,13 @@ export default function TabLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
-        name="explore"
+        name="order"
         options={{
-          title: "Explore",
+          title: "Order",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
+            <FontAwesome5  size={28} name="clipboard-list" color={color} />
           ),
         }}
       />
@@ -55,7 +56,7 @@ export default function TabLayout() {
           ),
         }}
       />
-        <Tabs.Screen
+      <Tabs.Screen
         name="login"
         options={{
           title: "Login",
@@ -64,7 +65,6 @@ export default function TabLayout() {
           ),
         }}
       />
-
     </Tabs>
   );
 }
