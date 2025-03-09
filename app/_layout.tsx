@@ -37,32 +37,37 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="auth/RegisterScreen"
-            options={{ headerShown: false }} 
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="auth/FogetPasswordScreen"
-            options={{ headerShown: false }} 
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="auth/VerifyOtpScreen"
-            options={{ headerShown: false }} 
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="auth/VerifyResetPassScreen"
-            options={{ headerShown: false }} 
+            options={{ headerShown: false }}
           />
-           <Stack.Screen
+          <Stack.Screen
             name="auth/SearchScreen"
-            options={{ headerShown: false }} 
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="auth/CartScreen"
-            options={{ headerShown: false }} 
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="auth/product/[id]"
-            options={{ headerShown: false }} 
+            options={{ headerShown: false }}
           />
+          <Stack.Screen
+            name="order/orderDetailScreen"
+            options={{ title: "Chi tiết đơn hàng" }}
+          />
+
           <Stack.Screen name="+not-found" />
         </Stack>
       )}
