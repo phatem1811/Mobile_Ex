@@ -109,6 +109,11 @@ export const useCart = () => {
     });
   }, []);
 
+  const clearCart = useCallback(() => {
+    setCart([]);
+    updateCartStorage([]);
+  }, []);
+
   // console.log('cart', cart);
 
   return {
@@ -117,5 +122,6 @@ export const useCart = () => {
     increaseQuantity,
     decreaseQuantity,
     removeFromCart,
+    clearCart,
   };
 };

@@ -19,6 +19,7 @@ const { width, height } = Dimensions.get("window");
 const ProductDetail = () => {
   const { id } = useLocalSearchParams();
   const [product, setProduct] = useState<any>(null);
+  const [selectedOptions, setSelectedOptions] = useState<{[key: string]: string}>({});
   const router = useRouter();
   const { cart, addToCart } = useCart();
   useEffect(() => {
@@ -26,6 +27,13 @@ const ProductDetail = () => {
       try {
         const response = await api.get(`/v1/product/get/${id}`);
         setProduct(response.data.data);
+        const initialOptions = {};
+        response.data.data.options.forEach(option => {
+          if (option.choices.length > 0) {
+            initialOptions[option._id] = option.choices[0]._id;
+          }
+        });
+        setSelectedOptions(initialOptions);
         console.log('success', response.data);
       } catch (error) {
         console.error("Error fetching product:", error);
@@ -46,19 +54,52 @@ const ProductDetail = () => {
     return price?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " đ";
   };
 
+  const handleOptionChange = (optionId: string, choiceId: string) => {
+    setSelectedOptions(prev => ({
+      ...prev,
+      [optionId]: choiceId
+    }));
+  };
+
+  const calculateTotalPrice = () => {
+    let total = product.currentPrice;
+    product.options.forEach(option => {
+      const selectedChoiceId = selectedOptions[option._id];
+      const selectedChoice = option.choices.find(choice => choice._id === selectedChoiceId);
+      if (selectedChoice?.additionalPrice) {
+        total += selectedChoice.additionalPrice;
+      }
+    });
+    return total;
+  };
+
   const handleAddToCart = () => {
+    const formattedOptions = product.options.map(option => {
+      const selectedChoiceId = selectedOptions[option._id];
+      const selectedChoice = option.choices.find(choice => choice._id === selectedChoiceId);
+      
+      return {
+        optionId: option._id,
+        choiceId: selectedChoiceId,
+        addPrice: selectedChoice?.additionalPrice || 0
+      };
+    });
+
+    console.log('formattedOptions', formattedOptions);
     addToCart({
       _id: product._id,
       name: product.name,
-      price: product.currentPrice,
+      price: calculateTotalPrice(),
       picture: product.picture,
-      options: product.options,
+      options: formattedOptions,
     });
-    console.log(`Added ${product.name} to cart`);
+    console.log(`Added ${product.name} to cart with options:`, formattedOptions);
   };
   
   const cartItem = cart.find(item => item.id === product._id);
   const quantityInCart = cartItem ? cartItem.quantity : 0;
+
+  console.log('product', product);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -89,18 +130,74 @@ const ProductDetail = () => {
               </Text>
             )}
           </View>
+
+          {product.options.map((option) => (
+            <View key={option._id} style={styles.optionContainer}>
+              <Text style={styles.optionTitle}>{option.name}</Text>
+              {option.choices.map((choice) => (
+                <TouchableOpacity
+                  key={choice._id}
+                  style={styles.radioContainer}
+                  onPress={() => handleOptionChange(option._id, choice._id)}
+                >
+                  <View style={styles.radioOuter}>
+                    {selectedOptions[option._id] === choice._id && (
+                      <View style={styles.radioInner} />
+                    )}
+                  </View>
+                  <Text style={styles.choiceText}>
+                    {choice.name}
+                    {choice.additionalPrice > 0 && 
+                      ` (+${formatPrice(choice.additionalPrice)})`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))}
         </View>
         <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
             <Text style={styles.addToCartText}>Thêm vào giỏ hàng</Text>
         </TouchableOpacity>
       </ScrollView>
-
-
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  optionContainer: {
+    marginTop: 15,
+  },
+  optionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 8,
+  },
+  radioContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 5,
+  },
+  radioOuter: {
+    height: 20,
+    width: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#FF6B6B",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  radioInner: {
+    height: 10,
+    width: 10,
+    borderRadius: 5,
+    backgroundColor: "#FF6B6B",
+  },
+  choiceText: {
+    fontSize: 16,
+    color: "#333",
+  },
   container: {
     flex: 1,
     backgroundColor: "#fff",
@@ -173,7 +270,7 @@ const styles = StyleSheet.create({
   },
   addToCartButton: {
     position: "fixed",
-    bottom: -150,
+    bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: "#FF6B6B",

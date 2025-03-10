@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useCart } from "../../hooks/useCart";
 import { useRouter } from "expo-router";
+import api from "@/api";
 
 const { width, height } = Dimensions.get("window");
 
@@ -19,15 +20,64 @@ const CartScreen = () => {
   const { cart, increaseQuantity, decreaseQuantity, removeFromCart } = useCart();
   const router = useRouter();
 
+  const [optionNames, setOptionNames] = useState<{ [key: string]: string }>({});
+  const [choices, setChoices] = useState<{ [key: string]: any[] }>({});
+
   const formatPrice = (price: number) => {
     return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " đ";
   };
 
-  // Tính tổng giá trị giỏ hàng
   const total = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
+
+  const getChoiceName = async (optionId: string, choiceId: string) => {
+    try {
+      if (!choices[optionId]) {
+        const response = await api.get(`/v1/choice/get-choice`, {
+          params: { optionalId: optionId },
+        });
+
+        const choiceList = response.data.choices || [];
+        setChoices((prev) => ({
+          ...prev,
+          [optionId]: choiceList,
+        }));
+        const choice = choiceList.find((ch) => ch._id === choiceId);
+        return choice ? choice.name : "Không có tên lựa chọn";
+      } else {
+        const choiceList = choices[optionId];
+        const choice = choiceList.find((ch) => ch._id === choiceId);
+        return choice ? choice.name : "Không có tên lựa chọn";
+      }
+    } catch (error) {
+      console.error("Error fetching choice name:", error);
+      return "Không có tên lựa chọn";
+    }
+  };
+
+  useEffect(() => {
+    const fetchOptionAndChoiceNames = async () => {
+      const newOptionNames: { [key: string]: string } = {};
+      const newChoices: { [key: string]: any[] } = {};
+
+      for (const item of cart) {
+        for (const opt of item.options) {
+          if (!newChoices[opt.optionId]) {
+            const choiceName = await getChoiceName(opt.optionId, opt.choiceId);
+            newOptionNames[`${opt.optionId}-${opt.choiceId}`] = choiceName;
+          }
+        }
+      }
+
+      setOptionNames(newOptionNames);
+    };
+
+    if (cart.length > 0) {
+      fetchOptionAndChoiceNames();
+    }
+  }, [cart]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -56,6 +106,19 @@ const CartScreen = () => {
               />
               <View style={styles.itemDetails}>
                 <Text style={styles.productName}>{item.name}</Text>
+                {item.options && item.options.length > 0 && (
+                  <View style={styles.optionsContainer}>
+                    {item.options.map((option, index) => (
+                      <Text key={index} style={styles.optionLabel}>
+                        {`${
+                          optionNames[`${option.optionId}-${option.choiceId}`] || 'Loading...'
+                        }${
+                          option.addPrice > 0 ? ` (+${formatPrice(option.addPrice)})` : ''
+                        }`}
+                      </Text>
+                    ))}
+                  </View>
+                )}
                 <Text style={styles.productPrice}>
                   {formatPrice(item.price)}
                 </Text>
@@ -102,6 +165,21 @@ const CartScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  optionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 5,
+  },
+  optionLabel: {
+    fontSize: 12,
+    color: '#666',
+    backgroundColor: '#f4f4f4',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 5,
+    marginBottom: 5,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: "#fff",
