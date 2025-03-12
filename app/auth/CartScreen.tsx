@@ -155,7 +155,7 @@ const CartScreen = () => {
             <Text style={styles.totalText}>Tổng thanh toán:</Text>
             <Text style={styles.totalPrice}>{formatPrice(total)}</Text>
           </View>
-          <TouchableOpacity style={styles.checkoutButton}>
+          <TouchableOpacity style={styles.checkoutButton}  onPress={() =>router.push("/order/checkoutScreen")}>
             <Text style={styles.checkoutButtonText}>Mua hàng ({cart.length})</Text>
           </TouchableOpacity>
         </View>
