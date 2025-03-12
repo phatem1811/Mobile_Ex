@@ -7,22 +7,32 @@ import {
   FlatList,
   Alert,
   StyleSheet,
+  Image,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import * as Location from "expo-location";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCart } from "@/hooks/useCart";
+import api from "@/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const CheckoutScreen: React.FC = () => {
   const navigation = useNavigation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { cart } = useCart();
 
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [voucher, setVoucher] = useState("");
+  const [voucherError, setVoucherError] = useState<string>("");
   const [discount, setDiscount] = useState(0);
+  const [points, setPoints] = useState(0); 
+  const [pointsDiscount, setPointsDiscount] = useState(0);
+  const [pointsError, setPointsError] = useState<string>("");
   const [location, setLocation] =
     useState<Location.LocationObjectCoords | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<{
@@ -38,6 +48,10 @@ const CheckoutScreen: React.FC = () => {
     latitudeDelta: 0.02,
     longitudeDelta: 0.02,
   });
+  const [choices, setChoices] = useState<{ [key: string]: any[] }>({});
+  const [optionNames, setOptionNames] = useState<{ [key: string]: string }>({});
+  const [userProfile, setUserProfile] = useState(null);
+  const [token, setToken] = useState<string | null>(null);
   const data = useLocalSearchParams();
 
   useEffect(() => {
@@ -78,11 +92,28 @@ const CheckoutScreen: React.FC = () => {
     }
   }, [data.address]);
 
-  // Danh sách sản phẩm trong đơn hàng (giả lập)
-  const cartItems = [
-    { id: "1", name: "Sản phẩm A", price: 200000, quantity: 1 },
-    { id: "2", name: "Sản phẩm B", price: 150000, quantity: 2 },
-  ];
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkToken = async () => {
+        const storedToken = await AsyncStorage.getItem("token");
+        setToken(storedToken);
+        if (storedToken) {
+          const response = await api.get("/v1/account/profile", {
+            headers: {
+              Authorization: `Bearer ${storedToken}`,
+            },
+          });
+          if (response.data) {
+            setUserProfile(response.data);
+          }
+        } else {
+          setUserProfile(null);
+        }
+      };
+      checkToken();
+      return () => {};
+    }, [])
+  );
 
   const fetchAddress = async (latitude: number, longitude: number) => {
     try {
@@ -106,22 +137,27 @@ const CheckoutScreen: React.FC = () => {
     }
   };
 
-  const shippingFee = 30000; // Phí ship cố định
-  const subtotal = cartItems.reduce(
+  const handlePointsChange = (inputValue: string) => {
+    const value = parseInt(inputValue) || 0;
+    const userPoints = userProfile?.point || 0; 
+  
+    if (value > userPoints) {
+      setPointsError("Số điểm nhập vượt quá số điểm bạn đang có");
+      setPoints(userPoints);
+      setPointsDiscount(userPoints); 
+    } else {
+      setPointsError("");
+      setPoints(value); 
+      setPointsDiscount(value);
+    }
+  };
+
+  const shippingFee = 10000; 
+  const subtotal = cart.reduce(
     (total, item) => total + item.price * item.quantity,
     0
   );
-  const total = subtotal + shippingFee - discount;
-
-  // Xử lý áp dụng voucher (giả lập)
-  const applyVoucher = () => {
-    if (voucher === "SALE50") {
-      setDiscount(50000);
-      Alert.alert("Áp dụng thành công! Giảm 50,000₫");
-    } else {
-      Alert.alert("Mã giảm giá không hợp lệ");
-    }
-  };
+  const total = subtotal + shippingFee - discount - pointsDiscount;
 
 
   const handleCheckout = () => {
@@ -132,6 +168,85 @@ const CheckoutScreen: React.FC = () => {
     Alert.alert("Đặt hàng thành công!");
     navigation.goBack();
   };
+
+  const getChoiceName = async (optionId: string, choiceId: string) => {
+    try {
+      if (!choices[optionId]) {
+        const response = await api.get(`/v1/choice/get-choice`, {
+          params: { optionalId: optionId },
+        });
+
+        const choiceList = response.data.choices || [];
+        setChoices((prev) => ({
+          ...prev,
+          [optionId]: choiceList,
+        }));
+        const choice = choiceList.find((ch) => ch._id === choiceId);
+        return choice ? choice.name : "";
+      } else {
+        const choiceList = choices[optionId];
+        const choice = choiceList.find((ch) => ch._id === choiceId);
+        return choice ? choice.name : "";
+      }
+    } catch (error) {
+      console.error("Error fetching choice name:", error);
+      return "";
+    }
+  };
+
+  const handleApplyVoucher = async () => {
+    try {
+      const url = `/v1/voucher/getcode?code=${voucher}`;
+      const fullUrl = api.defaults.baseURL + url;
+      const response = await api.get(url);
+      if (response.data && response.data.data) {
+        const voucherData = response.data.data;
+        if (voucherData.isActive) {
+          setDiscount(voucherData.discount);
+          setVoucherError("");
+          Alert.alert("Thành công", `Áp dụng voucher giảm ${voucherData.discount.toLocaleString()}₫`);
+        } else {
+          setVoucherError("Mã giảm giá đã hết hạn sử dụng");
+          setDiscount(0);
+          setVoucher("");
+          Alert.alert("Lỗi", "Mã giảm giá đã hết hạn sử dụng");
+        }
+      } else {
+        setVoucherError("Voucher không tồn tại");
+        setDiscount(0);
+        setVoucher("");
+        Alert.alert("Lỗi", "Voucher không tồn tại");
+      }
+    } catch (error) {
+      setVoucherError("Voucher không tồn tại");
+      setDiscount(0);
+      setVoucher("");
+      Alert.alert("Lỗi", "Voucher không tồn tại");
+    }
+  };
+
+  useEffect(() => {
+    const fetchOptionAndChoiceNames = async () => {
+      const newOptionNames: { [key: string]: string } = {};
+      const newChoices: { [key: string]: any[] } = {};
+
+      for (const item of cart) {
+        for (const opt of item.options) {
+          if (!newChoices[opt.optionId]) {
+            const choiceName = await getChoiceName(opt.optionId, opt.choiceId);
+            newOptionNames[`${opt.optionId}-${opt.choiceId}`] = choiceName;
+          }
+        }
+      }
+
+      setOptionNames(newOptionNames);
+    };
+
+    if (cart.length > 0) {
+      fetchOptionAndChoiceNames();
+    }
+  }, [cart]);
+
 
   const renderContent = () => (
     <>
@@ -165,14 +280,32 @@ const CheckoutScreen: React.FC = () => {
       <Text style={styles.title}>Tóm tắt đơn hàng</Text>
       
       <FlatList
-        data={cartItems}
+        data={cart}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.itemRow}>
-            <Text>
-              {item.name} (x{item.quantity})
-            </Text>
-            <Text>{item.price.toLocaleString()}₫</Text>
+          <View style={styles.cartItem}>
+            <Image
+              source={{ uri: item.picture }}
+              style={styles.productImage}
+              resizeMode="contain"
+            />
+            <View style={styles.itemDetails}>
+              <Text style={styles.productName}>{item.name}</Text>
+              {item.options && item.options.length > 0 && (
+                <View style={styles.optionsContainer}>
+                  {item.options.map((option, index) => (
+                    <Text key={index} style={styles.optionLabel}>
+                      {optionNames[`${option.optionId}-${option.choiceId}`]} 
+                      {option.addPrice > 0 ? ` (+${option.addPrice.toLocaleString()}₫)` : ''}
+                    </Text>
+                  ))}
+                </View>
+              )}
+              <Text style={styles.productPrice}>
+                {(item.price * item.quantity).toLocaleString()}₫
+              </Text>
+              <Text style={styles.quantity}>Số lượng: {item.quantity}</Text>
+            </View>
           </View>
         )}
         scrollEnabled={false}
@@ -183,26 +316,37 @@ const CheckoutScreen: React.FC = () => {
         onChangeText={setVoucher}
         style={styles.input}
       />
-      <TouchableOpacity style={styles.button} onPress={applyVoucher}>
+      <TouchableOpacity style={styles.button} onPress={handleApplyVoucher}>
         <Text style={styles.buttonText}>Áp dụng mã</Text>
       </TouchableOpacity>
+      {voucherError ? <Text style={styles.errorText}>{voucherError}</Text> : null}
+      {userProfile && (
+        <>
+          <Text>Nhập số điểm quy đổi:</Text>
+          <TextInput
+            placeholder="Nhập số điểm quy đổi"
+            value={points.toString()}
+            onChangeText={handlePointsChange}
+            keyboardType="numeric"
+            style={[styles.inputPoint, pointsError ? styles.inputError : null]}
+          />
+          </>
+      )}
+      {pointsError ? <Text style={styles.errorText}>{pointsError}</Text> : null}
     </>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <FlatList
-        data={[1]}
-        renderItem={() => null}
-        keyExtractor={() => "dummy"}
-        ListHeaderComponent={renderContent}
+      <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingBottom: insets.bottom + 300,
         }}
-      />
-
-
+        keyboardShouldPersistTaps="handled" 
+      >
+        {renderContent()}
+      </ScrollView>
       <View style={[styles.fixedFooter, { paddingBottom: insets.bottom }]}>
         <View style={styles.summaryRow}>
           <Text>Tạm tính:</Text>
@@ -216,6 +360,10 @@ const CheckoutScreen: React.FC = () => {
           <Text>Giảm giá:</Text>
           <Text>-{discount.toLocaleString()}₫</Text>
         </View>
+        {userProfile && <View style={styles.summaryRow}>
+          <Text>Điểm đã dùng:</Text>
+          <Text>-{pointsDiscount.toLocaleString()}₫</Text>
+        </View>}
         <View style={styles.totalRow}>
           <Text style={styles.totalText}>Tổng cộng:</Text>
           <Text style={styles.totalText}>{total.toLocaleString()}₫</Text>
@@ -248,6 +396,16 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     padding: 10,
     marginVertical: 5,
+    flex: 1,
+  },
+  inputPoint: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    padding: 10,
+    marginVertical: 5,
+    flex: 1,
+    marginBottom: 40,
   },
   itemRow: {
     flexDirection: "row",
@@ -274,6 +432,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: "center",
     marginTop: 5,
+    marginBottom: 15,
   },
   buttonText: {
     color: "white",
@@ -323,6 +482,72 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#ccc",
+  },
+  cartItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    backgroundColor: "#fff",
+  },
+  productImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  itemDetails: {
+    flex: 1,
+  },
+  productName: {
+    fontSize: 16,
+    color: "#333",
+    marginBottom: 5,
+  },
+  productPrice: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#FF6B6B",
+    marginBottom: 5,
+  },
+  quantity: {
+    fontSize: 14,
+    color: "#666",
+  },
+  optionsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 5,
+  },
+  optionLabel: {
+    fontSize: 12,
+    color: "#666",
+    backgroundColor: "#f4f4f4",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 5,
+    marginBottom: 5,
+  },
+  voucherContainer: {
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 5,
+  },
+  errorText: {
+    color: "#ff0000",
+    fontSize: 12,
+    marginTop: 5,
+  },
+  inputError: {
+    borderColor: "#ff0000",
+  },
+  pointsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 5,
   },
 });
 
