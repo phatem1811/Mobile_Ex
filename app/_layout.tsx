@@ -67,6 +67,19 @@ export default function RootLayout() {
             name="order/orderDetailScreen"
             options={{ title: "Chi tiết đơn hàng" }}
           />
+           <Stack.Screen
+            name="order/checkoutScreen"
+            options={{ title: "Thông tin nhận hàng" }}
+          />
+           <Stack.Screen
+            name="order/searchAdressScreen" 
+            options={{ title: "Thông tin nhận hàng" }}
+          />
+          <Stack.Screen
+            name="order/mapScreen" 
+            options={{ title: "Chọn vị trí" }}
+          />
+
 
           <Stack.Screen name="+not-found" />
         </Stack>
