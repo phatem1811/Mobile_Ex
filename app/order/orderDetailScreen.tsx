@@ -7,11 +7,13 @@ import {
   Image,
   FlatList,
   ScrollView,
+  TouchableOpacity,
 } from "react-native";
 import { Card } from "react-native-paper";
 import axios from "axios"; // Import axios
 import api from "@/api";
-import { useLocalSearchParams } from "expo-router";
+import Icon from "react-native-vector-icons/Ionicons";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 type Choice = {
   _id: string;
@@ -64,7 +66,7 @@ const OrderDetailScreen = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const data = useLocalSearchParams();
-
+  const router = useRouter();
   useEffect(() => {
     const fetchOrder = async () => {
       try {
@@ -184,11 +186,21 @@ const OrderDetailScreen = () => {
         </Card>
       )}
       ListFooterComponent={() => (
-        <Card style={styles.totalCard}>
-          <Text style={styles.totalText}>
-            💰 Tổng tiền: {order.total_price.toLocaleString()}đ
-          </Text>
-        </Card>
+        <View>
+          <Card style={styles.totalCard}>
+            <Text style={styles.totalText}>
+              💰 Tổng tiền: {order.total_price.toLocaleString()}đ
+            </Text>
+          </Card>
+
+          {/* Nút Home */}
+          <TouchableOpacity
+            style={styles.homeIcon}
+            onPress={() => router.push("/(tabs)")}
+          >
+            <Icon name="home" size={30} color="#075eec" />
+          </TouchableOpacity>
+        </View>
       )}
     />
   );
@@ -248,6 +260,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     color: "#e74c3c",
+  },
+  homeIcon: {
+    textAlign: "center",
+    padding: 10,
+    borderRadius: 50,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
   },
 });
 
