@@ -218,7 +218,7 @@ const HomePage = () => {
         >
           {product.map((product) => {
             return (
-              <TouchableOpacity key={product.id} style={styles.productItem}>
+              <TouchableOpacity key={product.id} style={styles.productItem} onPress={() => handleProductPress(product.id)}>
                 <Image
                   source={{ uri: product?.picture }}
                   resizeMode="contain"

@@ -14,6 +14,7 @@ import axios from "axios"; // Import axios
 import api from "@/api";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCart } from "@/hooks/useCart";
 
 type Choice = {
   _id: string;
@@ -67,6 +68,7 @@ const OrderDetailScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const data = useLocalSearchParams();
   const router = useRouter();
+  const { addToCart } = useCart();
   useEffect(() => {
     const fetchOrder = async () => {
       try {
@@ -124,6 +126,32 @@ const OrderDetailScreen = () => {
         return "❓ Trạng thái không xác định";
     }
   };
+
+  const handleReorder = () => {
+    if (order?.lineItem) {
+      order.lineItem.forEach((item) => {
+        const formattedOptions = item.options?.map((option) => ({
+          optionId: option.option._id,
+          choiceId: option.choices._id,
+          addPrice: option.choices.additionalPrice || 0,
+        })) || [];
+
+        const productData = {
+          _id: item.product._id,
+          name: item.product.name,
+          price: item.product.currentPrice, 
+          picture: item.product.picture,
+          options: formattedOptions,
+        };
+
+        console.log(`Adding to cart:`, productData, `Quantity: ${item.quantity}`);
+        addToCart(productData, item.quantity);
+      });
+
+      alert(`Đã thêm ${order.lineItem.length} sản phẩm vào giỏ hàng!`);
+    }
+  };
+
   return (
     <FlatList
       style={styles.container}
@@ -193,6 +221,14 @@ const OrderDetailScreen = () => {
             </Text>
           </Card>
 
+          {/* Nút Đặt lại */}
+          <TouchableOpacity
+            style={styles.reorderButton}
+            onPress={handleReorder}
+          >
+            <Text style={styles.reorderButtonText}>Đặt lại</Text>
+          </TouchableOpacity>
+
           {/* Nút Home */}
           <TouchableOpacity
             style={styles.homeIcon}
@@ -260,6 +296,18 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     color: "#e74c3c",
+  },
+  reorderButton: {
+    backgroundColor: "#FF6B6B",
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  reorderButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "white",
   },
   homeIcon: {
     textAlign: "center",
