@@ -184,15 +184,19 @@ const styles = StyleSheet.create({
   },
   detailButton: {
     marginTop: 10,
-    backgroundColor: "#007bff",
+    backgroundColor: "#fff", 
     padding: 10,
     borderRadius: 5,
     alignItems: "center",
+    borderWidth: 1, 
+    borderColor: "#FF6B6B", 
   },
+  
   detailButtonText: {
-    color: "#fff",
+    color: "#FF6B6B", 
     fontWeight: "bold",
   },
+  
   center: {
     flex: 1,
     justifyContent: "center",

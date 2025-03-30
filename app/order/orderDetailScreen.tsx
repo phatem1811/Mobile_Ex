@@ -109,42 +109,65 @@ const OrderDetailScreen = () => {
       </View>
     );
   }
-
-  const getOrderStatus = (state: number): string => {
-    switch (state) {
-      case 1:
-        return "🕒 Đơn hàng đang xử lý";
-      case 2:
-        return "👨‍🍳 Đang thực hiện món";
-      case 3:
-        return "🚚 Đang giao hàng";
-      case 4:
-        return "✅ Đã hoàn thành";
-      case 5:
-        return "❌ Hủy đơn hàng";
-      default:
-        return "❓ Trạng thái không xác định";
-    }
+  const getOrderStatus = (state: number) => {
+    const stages = [
+      { label: "🕒 Đang xử lý", state: 1 },
+      { label: "👨‍🍳 Đang thực hiện món", state: 2 },
+      { label: "🚚 Đang giao hàng", state: 3 },
+      { label: "✅ Đã hoàn thành", state: 4 },
+    ];
+  
+    // Chia thành 2 cột
+    const leftColumn = stages.filter((_, index) => index % 2 === 0);
+    const rightColumn = stages.filter((_, index) => index % 2 !== 0);
+  
+    const renderColumn = (items: typeof stages) => (
+      <View style={styles.statusColumn}>
+        {items.map((stage, index) => (
+          <View
+            key={index}
+            style={[
+              styles.statusStep,
+              state >= stage.state && styles.statusCompleted,
+            ]}
+          >
+            <Text style={styles.statusText}>{stage.label}</Text>
+          </View>
+        ))}
+      </View>
+    );
+  
+    return (
+      <View style={styles.statusContainer}>
+        {renderColumn(leftColumn)}
+        {renderColumn(rightColumn)}
+      </View>
+    );
   };
-
+  
   const handleReorder = () => {
     if (order?.lineItem) {
       order.lineItem.forEach((item) => {
-        const formattedOptions = item.options?.map((option) => ({
-          optionId: option.option._id,
-          choiceId: option.choices._id,
-          addPrice: option.choices.additionalPrice || 0,
-        })) || [];
+        const formattedOptions =
+          item.options?.map((option) => ({
+            optionId: option.option._id,
+            choiceId: option.choices._id,
+            addPrice: option.choices.additionalPrice || 0,
+          })) || [];
 
         const productData = {
           _id: item.product._id,
           name: item.product.name,
-          price: item.product.currentPrice, 
+          price: item.product.currentPrice,
           picture: item.product.picture,
           options: formattedOptions,
         };
 
-        console.log(`Adding to cart:`, productData, `Quantity: ${item.quantity}`);
+        console.log(
+          `Adding to cart:`,
+          productData,
+          `Quantity: ${item.quantity}`
+        );
         addToCart(productData, item.quantity);
       });
 
@@ -159,28 +182,37 @@ const OrderDetailScreen = () => {
       keyExtractor={(item) => item._id}
       contentContainerStyle={{ paddingBottom: 120 }}
       ListHeaderComponent={() => (
-        <Card style={styles.card}>
-          <Text style={styles.title}>Thông tin đơn hàng</Text>
-          <Text style={styles.text}>👤 {order.fullName}</Text>
-          <Text style={styles.text}>📞 {order.phone_shipment}</Text>
-          <Text style={styles.text}>
-            🚚 Phí vận chuyển: {order.ship.toLocaleString()}đ
-          </Text>
-          <Text style={styles.text}>
-            🎟 Voucher: {order.voucher?.code || "Không có"} -{" "}
-            {order.voucher?.discount || 0}đ
-          </Text>
-          <Text style={styles.text}>
-            💎 Điểm giảm giá: -{order.pointDiscount.toLocaleString()}đ
-          </Text>
-          <Text style={styles.text}>
-            💳 Trạng thái:{" "}
-            {order.isPaid ? "✅ Đã thanh toán" : "❌ Chưa thanh toán"}
-          </Text>
-          <Text style={styles.text}>
-            📌 Trạng thái: {getOrderStatus(order.state)}
-          </Text>
-        </Card>
+        <>
+          <Card style={styles.card}>
+            <Text style={styles.title}>Thông tin đơn hàng</Text>
+            <Text style={styles.text}>👤 {order.fullName}</Text>
+            <Text style={styles.text}>📞 {order.phone_shipment}</Text>
+            <Text style={styles.text}>
+              🚚 Phí vận chuyển: {order.ship.toLocaleString()}đ
+            </Text>
+            <Text style={styles.text}>
+              🎟 Voucher: {order.voucher?.code || "Không có"} -{" "}
+              {order.voucher?.discount || 0}đ
+            </Text>
+            <Text style={styles.text}>
+              💎 Điểm giảm giá: -{order.pointDiscount.toLocaleString()}đ
+            </Text>
+            <Text style={styles.text}>
+              💳 Trạng thái:{" "}
+              {order.isPaid ? "✅ Đã thanh toán" : "❌ Chưa thanh toán"}
+            </Text>
+            <Text style={styles.text}>
+              📌 Trạng thái giao hàng: {getOrderStatus(order.state)}
+            </Text>
+          </Card>
+
+          {/* <Card style={styles.statusCard}>
+            <Text style={styles.title}>Trạng thái đơn hàng</Text>
+            <View style={styles.statusContainer}>
+              {getOrderStatus(order.state)}
+            </View>
+          </Card> */}
+        </>
       )}
       renderItem={({ item }) => (
         <Card style={styles.productCard}>
@@ -257,7 +289,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: "#333",
   },
-  text: { fontSize: 16, marginBottom: 4, color: "#555" },
+  text: { fontSize: 16, marginBottom: 6, color: "#555" },
   productCard: {
     padding: 12,
     marginBottom: 12,
@@ -273,6 +305,39 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 8,
     color: "#333",
+  },
+statusCompleted: { backgroundColor: "#4CAF50" },
+  statusText: {
+    color: "white",
+    fontWeight: "bold",
+    textAlign: "center", 
+    flexWrap: "wrap",
+  },
+  statusStep: {
+    padding: 8,
+    marginTop: 10,
+    marginLeft: 4,
+    marginBottom: 8,
+    borderRadius: 10,
+    backgroundColor: "#C0C0C0", 
+    alignItems: "center",
+    justifyContent: "center", 
+    minHeight: 60, 
+  },
+  statusCard: {
+    padding: 16,
+    marginBottom: 16,
+    backgroundColor: "white",
+    borderRadius: 10,
+  },
+  statusContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between", 
+    marginVertical: 16,
+  },
+  statusColumn: {
+    marginTop: 10,
+    flex: 1, 
   },
   optionText: { fontSize: 14, color: "#555" },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
