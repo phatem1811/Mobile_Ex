@@ -8,33 +8,37 @@ import {
   SafeAreaView,
   Dimensions,
   ScrollView,
+  TextInput,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import api from "../../../api";
 import { useCart } from "../../../hooks/useCart";
+import Toast from "react-native-toast-message";
 
 const { width, height } = Dimensions.get("window");
 
 const ProductDetail = () => {
   const { id } = useLocalSearchParams();
   const [product, setProduct] = useState<any>(null);
-  const [selectedOptions, setSelectedOptions] = useState<{[key: string]: string}>({});
+  const [quantity, setQuantity] = useState<string>("1");
+  const [selectedOptions, setSelectedOptions] = useState<{ [key: string]: string }>({});
   const router = useRouter();
   const { cart, addToCart } = useCart();
+
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         const response = await api.get(`/v1/product/get/${id}`);
         setProduct(response.data.data);
         const initialOptions = {};
-        response.data.data.options.forEach(option => {
+        response.data.data.options.forEach((option) => {
           if (option.choices.length > 0) {
             initialOptions[option._id] = option.choices[0]._id;
           }
         });
         setSelectedOptions(initialOptions);
-        console.log('success', response.data);
+        console.log("success", response.data);
       } catch (error) {
         console.error("Error fetching product:", error);
       }
@@ -55,51 +59,100 @@ const ProductDetail = () => {
   };
 
   const handleOptionChange = (optionId: string, choiceId: string) => {
-    setSelectedOptions(prev => ({
+    setSelectedOptions((prev) => ({
       ...prev,
-      [optionId]: choiceId
+      [optionId]: choiceId,
     }));
   };
 
   const calculateTotalPrice = () => {
     let total = product.currentPrice;
-    product.options.forEach(option => {
+    product.options.forEach((option) => {
       const selectedChoiceId = selectedOptions[option._id];
-      const selectedChoice = option.choices.find(choice => choice._id === selectedChoiceId);
+      const selectedChoice = option.choices.find((choice) => choice._id === selectedChoiceId);
       if (selectedChoice?.additionalPrice) {
         total += selectedChoice.additionalPrice;
       }
     });
-    return total;
+    return total * parseInt(quantity || "1");
+  };
+
+  // Xử lý thay đổi số lượng qua input
+  const handleQuantityChange = (value: string) => {
+    const numValue = parseInt(value);
+    if (isNaN(numValue) || numValue < 1) {
+      setQuantity("1");
+    } else {
+      setQuantity(value);
+    }
+  };
+
+  // Tăng số lượng
+  const increaseQuantity = () => {
+    const newQuantity = parseInt(quantity) + 1;
+    setQuantity(newQuantity.toString());
+  };
+
+  // Giảm số lượng
+  const decreaseQuantity = () => {
+    const currentQty = parseInt(quantity);
+    if (currentQty > 1) {
+      setQuantity((currentQty - 1).toString());
+    }
   };
 
   const handleAddToCart = () => {
-    const formattedOptions = product.options.map(option => {
-      const selectedChoiceId = selectedOptions[option._id];
-      const selectedChoice = option.choices.find(choice => choice._id === selectedChoiceId);
-      
-      return {
-        optionId: option._id,
-        choiceId: selectedChoiceId,
-        addPrice: selectedChoice?.additionalPrice || 0
-      };
-    });
+    try {
+      const formattedOptions = product.options.map((option) => {
+        const selectedChoiceId = selectedOptions[option._id];
+        const selectedChoice = option.choices.find((choice) => choice._id === selectedChoiceId);
 
-    console.log('formattedOptions', formattedOptions);
-    addToCart({
-      _id: product._id,
-      name: product.name,
-      price: calculateTotalPrice(),
-      picture: product.picture,
-      options: formattedOptions,
-    });
-    console.log(`Added ${product.name} to cart with options:`, formattedOptions);
+        return {
+          optionId: option._id,
+          choiceId: selectedChoiceId,
+          addPrice: selectedChoice?.additionalPrice || 0,
+        };
+      });
+
+      addToCart(
+        {
+          _id: product._id,
+          name: product.name,
+          price: product.currentPrice, // Giá gốc mỗi sản phẩm
+          picture: product.picture,
+          options: formattedOptions,
+        },
+        parseInt(quantity) // Truyền số lượng vào đây
+      );
+
+      Toast.show({
+        type: "success",
+        text1: "Thành công 🎉",
+        text2: `Đã thêm ${product.name} vào giỏ hàng!`,
+        position: "top",
+        visibilityTime: 1500,
+        autoHide: true,
+      });
+
+      console.log(`Added ${product.name} to cart with options:`, formattedOptions);
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Thất bại 😔",
+        text2: "Không thể thêm sản phẩm vào giỏ hàng. Vui lòng thử lại!",
+        position: "top",
+        visibilityTime: 1500,
+        autoHide: true,
+      });
+
+      console.error("Error adding to cart:", error);
+    }
   };
-  
-  const cartItem = cart.find(item => item.id === product._id);
+
+  const cartItem = cart.find((item) => item.id === product._id);
   const quantityInCart = cartItem ? cartItem.quantity : 0;
 
-  console.log('product', product);
+  console.log("product", product);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -108,7 +161,7 @@ const ProductDetail = () => {
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chi tiết sản phẩm</Text>
-        <View style={{ width: 24 }} /> 
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -131,6 +184,22 @@ const ProductDetail = () => {
             )}
           </View>
 
+          <View style={styles.quantityContainer}>
+            <Text style={styles.quantityLabel}>Số lượng:</Text>
+            <TouchableOpacity style={styles.quantityButton} onPress={decreaseQuantity}>
+              <Text style={styles.quantityButtonText}>-</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={styles.quantityInput}
+              value={quantity}
+              onChangeText={handleQuantityChange}
+              keyboardType="numeric"
+            />
+            <TouchableOpacity style={styles.quantityButton} onPress={increaseQuantity}>
+              <Text style={styles.quantityButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+
           {product.options.map((option) => (
             <View key={option._id} style={styles.optionContainer}>
               <Text style={styles.optionTitle}>{option.name}</Text>
@@ -147,7 +216,7 @@ const ProductDetail = () => {
                   </View>
                   <Text style={styles.choiceText}>
                     {choice.name}
-                    {choice.additionalPrice > 0 && 
+                    {choice.additionalPrice > 0 &&
                       ` (+${formatPrice(choice.additionalPrice)})`}
                   </Text>
                 </TouchableOpacity>
@@ -155,10 +224,13 @@ const ProductDetail = () => {
             </View>
           ))}
         </View>
-        <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
-            <Text style={styles.addToCartText}>Thêm vào giỏ hàng</Text>
-        </TouchableOpacity>
       </ScrollView>
+
+      <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
+        <Text style={styles.addToCartText}>Thêm vào giỏ hàng</Text>
+      </TouchableOpacity>
+
+      <Toast />
     </SafeAreaView>
   );
 };
@@ -224,7 +296,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   scrollContent: {
-    paddingBottom: 20, 
+    paddingBottom: 80,
   },
   productImage: {
     width: "100%",
@@ -263,13 +335,8 @@ const styles = StyleSheet.create({
     textDecorationLine: "line-through",
     marginRight: 10,
   },
-  discount: {
-    fontSize: 16,
-    color: "#FF6B6B",
-    fontWeight: "bold",
-  },
   addToCartButton: {
-    position: "fixed",
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -279,11 +346,46 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     elevation: 5,
+    zIndex: 10,
   },
   addToCartText: {
     fontSize: 18,
     color: "white",
     fontWeight: "bold",
+  },
+  quantityContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 15,
+  },
+  quantityLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    marginRight: 10,
+  },
+  quantityButton: {
+    width: 40,
+    height: 40,
+    backgroundColor: "#FF6B6B",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 5,
+  },
+  quantityButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  quantityInput: {
+    width: 40,
+    height: 40,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 5,
+    textAlign: "center",
+    marginHorizontal: 10,
+    fontSize: 16,
   },
 });
 

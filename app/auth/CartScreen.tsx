@@ -12,7 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useCart } from "../../hooks/useCart";
 import { useRouter } from "expo-router";
-import api from "@/api";
+import api from "../../api";
 
 const { width, height } = Dimensions.get("window");
 

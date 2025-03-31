@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface CartItem {
   id: string;
@@ -10,9 +10,20 @@ interface CartItem {
   options: any[];
 }
 
-const CART_STORAGE_KEY = 'cart';
+interface CartContextType {
+  cart: CartItem[];
+  addToCart: (product: Omit<CartItem, "quantity">, quantity?: number) => void;
+  increaseQuantity: (id: string) => void;
+  decreaseQuantity: (id: string) => void;
+  removeFromCart: (id: string) => void;
+  clearCart: () => void;
+}
 
-export const useCart = () => {
+const CartContext = createContext<CartContextType | undefined>(undefined);
+
+const CART_STORAGE_KEY = "cart";
+
+export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
 
   // Hàm lấy giỏ hàng từ AsyncStorage
@@ -22,7 +33,7 @@ export const useCart = () => {
       const parsedCart = cartData ? JSON.parse(cartData) : [];
       setCart(parsedCart);
     } catch (error) {
-      console.error('Error loading cart from AsyncStorage:', error);
+      console.error("Error loading cart from AsyncStorage:", error);
     }
   };
 
@@ -37,20 +48,18 @@ export const useCart = () => {
       await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updatedCart));
       setCart(updatedCart);
     } catch (error) {
-      console.error('Error saving cart to AsyncStorage:', error);
+      console.error("Error saving cart to AsyncStorage:", error);
     }
   };
 
   // Thêm sản phẩm vào giỏ hàng
-  const addToCart = useCallback((product: {
-    _id: string;
-    name: string;
-    price: number;
-    picture: string;
-    options?: any[];
-  }, quantity: number = 1) => {
+  const addToCart = (product: Omit<CartItem, "quantity">, quantity: number = 1) => {
     setCart((prevCart) => {
-      const existingItemIndex = prevCart.findIndex(item => item.id === product._id);
+      const existingItemIndex = prevCart.findIndex(
+        (item) =>
+          item.id === product._id &&
+          JSON.stringify(item.options) === JSON.stringify(product.options)
+      );
       let newCart: CartItem[];
 
       if (existingItemIndex > -1) {
@@ -74,23 +83,23 @@ export const useCart = () => {
       updateCartStorage(newCart);
       return newCart;
     });
-  }, []);
+  };
 
   // Tăng số lượng
-  const increaseQuantity = useCallback((id: string) => {
+  const increaseQuantity = (id: string) => {
     setCart((prevCart) => {
-      const newCart = prevCart.map(item =>
+      const newCart = prevCart.map((item) =>
         item.id === id ? { ...item, quantity: item.quantity + 1 } : item
       );
       updateCartStorage(newCart);
       return newCart;
     });
-  }, []);
+  };
 
   // Giảm số lượng
-  const decreaseQuantity = useCallback((id: string) => {
+  const decreaseQuantity = (id: string) => {
     setCart((prevCart) => {
-      const newCart = prevCart.map(item =>
+      const newCart = prevCart.map((item) =>
         item.id === id && item.quantity > 1
           ? { ...item, quantity: item.quantity - 1 }
           : item
@@ -98,25 +107,24 @@ export const useCart = () => {
       updateCartStorage(newCart);
       return newCart;
     });
-  }, []);
+  };
 
   // Xóa sản phẩm khỏi giỏ hàng
-  const removeFromCart = useCallback((id: string) => {
+  const removeFromCart = (id: string) => {
     setCart((prevCart) => {
-      const newCart = prevCart.filter(item => item.id !== id);
+      const newCart = prevCart.filter((item) => item.id !== id);
       updateCartStorage(newCart);
       return newCart;
     });
-  }, []);
+  };
 
-  const clearCart = useCallback(() => {
+  // Xóa toàn bộ giỏ hàng
+  const clearCart = () => {
     setCart([]);
     updateCartStorage([]);
-  }, []);
+  };
 
-  // console.log('cart', cart);
-
-  return {
+  const value: CartContextType = {
     cart,
     addToCart,
     increaseQuantity,
@@ -124,4 +132,15 @@ export const useCart = () => {
     removeFromCart,
     clearCart,
   };
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+};
+
+// Hook để sử dụng CartContext
+export const useCart = (): CartContextType => {
+  const context = useContext(CartContext);
+  if (!context) {
+    throw new Error("useCart must be used within a CartProvider");
+  }
+  return context;
 };

@@ -11,10 +11,10 @@ import {
 } from "react-native";
 import { Card } from "react-native-paper";
 import axios from "axios"; // Import axios
-import api from "@/api";
+import api from "../../api";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCart } from "@/hooks/useCart";
+import { useCart } from "../../hooks/useCart";
 
 type Choice = {
   _id: string;

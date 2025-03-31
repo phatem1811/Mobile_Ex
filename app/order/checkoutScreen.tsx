@@ -18,9 +18,9 @@ import { useNavigation } from "@react-navigation/native";
 import * as Location from "expo-location";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCart } from "@/hooks/useCart";
-import api from "@/api";
-import socket from "@/socket";
+import { useCart } from "../../hooks/useCart";
+import api from "../../api";
+import socket from "../../socket";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
 
