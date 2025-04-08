@@ -109,38 +109,52 @@ const OrderDetailScreen = () => {
       </View>
     );
   }
-  const getOrderStatus = (state: number) => {
+  const getOrderStatusLine = (state: number) => {
     const stages = [
-      { label: "🕒 Đang xử lý", state: 1 },
-      { label: "👨‍🍳 Đang thực hiện món", state: 2 },
-      { label: "🚚 Đang giao hàng", state: 3 },
-      { label: "✅ Đã hoàn thành", state: 4 },
+      { label: "Đang xử lí", state: 1 },
+      { label: "Đang thưc hiẹn", state: 2 },
+      { label: "Đang giao hàng", state: 3 },
+      { label: "Hoàn thành", state: 4 },
     ];
   
-    // Chia thành 2 cột
-    const leftColumn = stages.filter((_, index) => index % 2 === 0);
-    const rightColumn = stages.filter((_, index) => index % 2 !== 0);
-  
-    const renderColumn = (items: typeof stages) => (
-      <View style={styles.statusColumn}>
-        {items.map((stage, index) => (
-          <View
-            key={index}
-            style={[
-              styles.statusStep,
-              state >= stage.state && styles.statusCompleted,
-            ]}
-          >
-            <Text style={styles.statusText}>{stage.label}</Text>
-          </View>
-        ))}
-      </View>
-    );
-  
     return (
-      <View style={styles.statusContainer}>
-        {renderColumn(leftColumn)}
-        {renderColumn(rightColumn)}
+      <View style={styles.containerLine}>
+        <View style={styles.lineContainer}>
+          {stages.map((stage, index) => {
+            const isCompleted = state >= stage.state;
+            const isLast = index === stages.length - 1;
+            return (
+              <React.Fragment key={index}>
+                <View style={styles.stepContainer}>
+                  <View
+                    style={[
+                      styles.circle,
+                      isCompleted && styles.circleCompleted,
+                    ]}
+                  >
+                    {isCompleted && <Text style={styles.checkMark}>✓</Text>}
+                  </View>
+                  <Text
+                    style={[
+                      styles.label,
+                      isCompleted && styles.labelCompleted,
+                    ]}
+                  >
+                    {stage.label}
+                  </Text>
+                </View>
+                {!isLast && (
+                  <View
+                    style={[
+                      styles.line,
+                      state > stage.state && styles.lineCompleted,
+                    ]}
+                  />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </View>
       </View>
     );
   };
@@ -202,7 +216,7 @@ const OrderDetailScreen = () => {
               {order.isPaid ? "✅ Đã thanh toán" : "❌ Chưa thanh toán"}
             </Text>
             <Text style={styles.text}>
-              📌 Trạng thái giao hàng: {getOrderStatus(order.state)}
+              📌 Trạng thái giao hàng: {getOrderStatusLine(order.state)}
             </Text>
           </Card>
 
@@ -384,6 +398,56 @@ statusCompleted: { backgroundColor: "#4CAF50" },
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
+  },
+  containerLine: {
+    alignItems: 'center', // Căn giữa thanh tiến trình
+    padding: 16,
+  },
+  lineContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    maxWidth: 400, // Giới hạn chiều rộng tối đa
+    width: '100%', // Đảm bảo nó chiếm toàn bộ chiều rộng có thể
+  },
+  stepContainer: {
+    flex: 1, // Mỗi bước chiếm một phần bằng nhau
+    alignItems: 'center',
+  },
+  circle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#ccc',
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  circleCompleted: {
+    backgroundColor: '#00b894',
+    borderColor: '#00b894',
+  },
+  checkMark: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  label: {
+    marginTop: 8,
+    color: '#aaa',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  labelCompleted: {
+    color: '#00b894',
+  },
+  line: {
+    height: 2,
+    flex: 1, // Đường kẻ chiếm phần không gian còn lại giữa các bước
+    backgroundColor: '#ccc',
+    alignSelf: 'center',
+  },
+  lineCompleted: {
+    backgroundColor: '#00b894',
   },
 });
 

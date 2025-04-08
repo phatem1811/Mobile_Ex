@@ -15,18 +15,48 @@ import { Ionicons } from "@expo/vector-icons";
 import api from "../../../api";
 import { useCart } from "../../../hooks/useCart";
 import Toast from "react-native-toast-message";
+import ReviewForm from "./ReviewForm";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+import "dayjs/locale/vi";
+
+import { FontAwesome } from "@expo/vector-icons";
+
+dayjs.extend(relativeTime);
+dayjs.locale("vi");
 
 const { width, height } = Dimensions.get("window");
 
+type Review = {
+  fullName?: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+};
 const ProductDetail = () => {
   const { id } = useLocalSearchParams();
   const [product, setProduct] = useState<any>(null);
+  const [review, setReview] = useState<any>(null);
   const [quantity, setQuantity] = useState<string>("1");
-  const [selectedOptions, setSelectedOptions] = useState<{ [key: string]: string }>({});
+  const [selectedOptions, setSelectedOptions] = useState<{
+    [key: string]: string;
+  }>({});
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [visibleReviews, setVisibleReviews] = useState(2);
   const router = useRouter();
   const { cart, addToCart } = useCart();
 
   useEffect(() => {
+    const fetchrReview = async () => {
+      try {
+        const response = await api.get(`/v1/review/product/${id}`);
+
+        console.log("check review", response.data);
+        setReview(response.data);
+      } catch (error) {
+        console.error("Error fetching product:", error);
+      }
+    };
     const fetchProduct = async () => {
       try {
         const response = await api.get(`/v1/product/get/${id}`);
@@ -38,12 +68,12 @@ const ProductDetail = () => {
           }
         });
         setSelectedOptions(initialOptions);
-        console.log("success", response.data);
       } catch (error) {
         console.error("Error fetching product:", error);
       }
     };
     fetchProduct();
+    fetchrReview();
   }, [id]);
 
   if (!product) {
@@ -69,7 +99,9 @@ const ProductDetail = () => {
     let total = product.currentPrice;
     product.options.forEach((option) => {
       const selectedChoiceId = selectedOptions[option._id];
-      const selectedChoice = option.choices.find((choice) => choice._id === selectedChoiceId);
+      const selectedChoice = option.choices.find(
+        (choice) => choice._id === selectedChoiceId
+      );
       if (selectedChoice?.additionalPrice) {
         total += selectedChoice.additionalPrice;
       }
@@ -105,7 +137,9 @@ const ProductDetail = () => {
     try {
       const formattedOptions = product.options.map((option) => {
         const selectedChoiceId = selectedOptions[option._id];
-        const selectedChoice = option.choices.find((choice) => choice._id === selectedChoiceId);
+        const selectedChoice = option.choices.find(
+          (choice) => choice._id === selectedChoiceId
+        );
 
         return {
           optionId: option._id,
@@ -134,7 +168,10 @@ const ProductDetail = () => {
         autoHide: true,
       });
 
-      console.log(`Added ${product.name} to cart with options:`, formattedOptions);
+      console.log(
+        `Added ${product.name} to cart with options:`,
+        formattedOptions
+      );
     } catch (error) {
       Toast.show({
         type: "error",
@@ -151,8 +188,6 @@ const ProductDetail = () => {
 
   const cartItem = cart.find((item) => item.id === product._id);
   const quantityInCart = cartItem ? cartItem.quantity : 0;
-
-  console.log("product", product);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -186,7 +221,10 @@ const ProductDetail = () => {
 
           <View style={styles.quantityContainer}>
             <Text style={styles.quantityLabel}>Số lượng:</Text>
-            <TouchableOpacity style={styles.quantityButton} onPress={decreaseQuantity}>
+            <TouchableOpacity
+              style={styles.quantityButton}
+              onPress={decreaseQuantity}
+            >
               <Text style={styles.quantityButtonText}>-</Text>
             </TouchableOpacity>
             <TextInput
@@ -195,7 +233,10 @@ const ProductDetail = () => {
               onChangeText={handleQuantityChange}
               keyboardType="numeric"
             />
-            <TouchableOpacity style={styles.quantityButton} onPress={increaseQuantity}>
+            <TouchableOpacity
+              style={styles.quantityButton}
+              onPress={increaseQuantity}
+            >
               <Text style={styles.quantityButtonText}>+</Text>
             </TouchableOpacity>
           </View>
@@ -223,10 +264,98 @@ const ProductDetail = () => {
               ))}
             </View>
           ))}
+
+          <View style={styles.reviewSection}>
+            <Text style={styles.reviewTitle}>Đánh giá sản phẩm</Text>
+
+            {review?.length > 0 ? (
+              <>
+                {review
+                  .slice(0, visibleReviews)
+                  .map((item: Review, index: number) => (
+                    <View key={index} style={styles.reviewItem}>
+                      <View style={styles.reviewHeader}>
+                        <Text style={styles.reviewerName}>
+                          {item.fullName || "Người dùng ẩn danh"}
+                        </Text>
+                        <View style={styles.starContainer}>
+                          {[0, 1, 2, 3, 4].map((i) => (
+                            <FontAwesome
+                              key={i}
+                              name="star"
+                              size={16}
+                              color={i < item.rating ? "#FFD700" : "#ccc"}
+                              style={{ marginRight: 2 }}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                      <Text style={styles.reviewTime}>
+                        {dayjs(item.createdAt).fromNow()}
+                      </Text>
+                      <Text style={styles.reviewComment}>{item.comment}</Text>
+                    </View>
+                  ))}
+
+                {/* Nút xem thêm & thêm đánh giá */}
+                <View style={styles.reviewActions}>
+                  {!showReviewForm && (
+                    <TouchableOpacity
+                      onPress={() => setShowReviewForm(true)}
+                      style={styles.actionButton}
+                    >
+                      <Text style={styles.actionText}>➕ Thêm đánh giá</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {review.length > visibleReviews && (
+                    <TouchableOpacity
+                      onPress={() => setVisibleReviews((prev) => prev + 2)}
+                      style={styles.actionButton}
+                    >
+                      <Text style={styles.actionText}>
+                        📖 Xem thêm đánh giá
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text
+                  style={{
+                    fontStyle: "italic",
+                    color: "#666",
+                    marginBottom: 8,
+                  }}
+                >
+                  Sản phẩm này chưa có đánh giá nào.
+                </Text>
+                {!showReviewForm && (
+                  <TouchableOpacity
+                    onPress={() => setShowReviewForm(true)}
+                    style={styles.actionButton}
+                  >
+                    <Text style={styles.actionText}>➕ Thêm đánh giá</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+
+            {/* Hiển thị form khi bấm thêm đánh giá */}
+            {showReviewForm && (
+              <View style={{ marginTop: 12 }}>
+                <ReviewForm productId={product._id} />
+              </View>
+            )}
+          </View>
         </View>
       </ScrollView>
 
-      <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
+      <TouchableOpacity
+        style={styles.addToCartButton}
+        onPress={handleAddToCart}
+      >
         <Text style={styles.addToCartText}>Thêm vào giỏ hàng</Text>
       </TouchableOpacity>
 
@@ -236,10 +365,12 @@ const ProductDetail = () => {
 };
 
 const styles = StyleSheet.create({
+  starContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   optionContainer: {
     marginTop: 15,
-  },
-  optionTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#333",
@@ -386,6 +517,63 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginHorizontal: 10,
     fontSize: 16,
+  },
+  reviewSection: {
+    marginTop: 20,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderColor: "#eee",
+  },
+  reviewTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 10,
+  },
+  reviewItem: {
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderColor: "#f0f0f0",
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 5,
+  },
+  reviewerName: {
+    fontWeight: "bold",
+    fontSize: 16,
+    color: "#444",
+  },
+  ratingText: {
+    color: "#f39c12",
+    fontWeight: "600",
+  },
+  reviewComment: {
+    fontSize: 15,
+    color: "#555",
+  },
+  reviewTime: {
+    color: "#999",
+    fontSize: 14,
+    fontStyle: "italic",
+    opacity: 0.6,
+  },
+  reviewActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 12,
+  },
+  actionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#eee",
+    borderRadius: 6,
+  },
+  actionText: {
+    fontWeight: "600",
+    color: "#333",
   },
 });
 
