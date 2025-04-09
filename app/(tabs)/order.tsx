@@ -57,7 +57,6 @@ const OrderHistoryScreen: React.FC = () => {
               headers: { Authorization: `Bearer ${storedToken}` },
             }
           );
-          console.log("check bill", billResponse.data.data.bills);
           setOrders(billResponse.data.data.bills || []);
         } catch (error) {
           console.error("Lỗi khi lấy danh sách hóa đơn:", error);
