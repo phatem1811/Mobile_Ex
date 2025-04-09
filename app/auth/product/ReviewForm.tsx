@@ -15,6 +15,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import api from "../../../api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import socket from "@/socket";
 
 type ReviewFormProps = {
   productId: string;
@@ -42,8 +43,8 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId }) => {
             },
           });
           setFullName(response.data.fullname);
-          setPhone(response.data.phonenumber)
-        } 
+          setPhone(response.data.phonenumber);
+        }
       };
       checkToken();
       return () => {};
@@ -55,33 +56,16 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId }) => {
       Alert.alert("Vui lòng điền đầy đủ thông tin đánh giá");
       return;
     }
+    const reviewData = {
+      phoneNumber: phone,
+      fullName: fullName,
+      rating: rating,
+      comment: comment,
+      product: productId,
+    };
+    socket.emit("createReview", reviewData);
 
-    try {
-      setIsLoading(true);
-      const response = await api.post("/v1/review/create", {
-        phoneNumber: phone,
-        fullName: fullName,
-        rating: rating,
-        comment: comment,
-        product: productId
-      });
-
-      router.push("/(tabs)");
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.data) {
-        Alert.alert(
-          "Lỗi",
-          err.response?.data.message || "Gửi đánh giá thất bại."
-        );
-      } else {
-        Alert.alert(
-          "Lỗi",
-          "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau."
-        );
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    router.push("/(tabs)");
   };
 
   return (
