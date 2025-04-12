@@ -110,9 +110,17 @@ const OrderDetailScreen = () => {
     );
   }
   const getOrderStatusLine = (state: number) => {
+    if (state === -1) {
+      return (
+        <View style={styles.containerLine}>
+          <Text style={styles.canceledOrderText}>Đơn hàng đã bị hủy</Text>
+        </View>
+      );
+    }
+  
     const stages = [
       { label: "Đang xử lí", state: 1 },
-      { label: "Đang thưc hiẹn", state: 2 },
+      { label: "Đang thực hiện", state: 2 },
       { label: "Đang giao hàng", state: 3 },
       { label: "Hoàn thành", state: 4 },
     ];
@@ -135,10 +143,7 @@ const OrderDetailScreen = () => {
                     {isCompleted && <Text style={styles.checkMark}>✓</Text>}
                   </View>
                   <Text
-                    style={[
-                      styles.label,
-                      isCompleted && styles.labelCompleted,
-                    ]}
+                    style={[styles.label, isCompleted && styles.labelCompleted]}
                   >
                     {stage.label}
                   </Text>
@@ -158,6 +163,7 @@ const OrderDetailScreen = () => {
       </View>
     );
   };
+  
   
   const handleReorder = () => {
     if (order?.lineItem) {
@@ -337,6 +343,12 @@ statusCompleted: { backgroundColor: "#4CAF50" },
     alignItems: "center",
     justifyContent: "center", 
     minHeight: 60, 
+  },
+  canceledOrderText: {
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
   statusCard: {
     padding: 16,
