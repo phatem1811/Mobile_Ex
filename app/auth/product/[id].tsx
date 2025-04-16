@@ -51,7 +51,6 @@ const ProductDetail = () => {
       try {
         const response = await api.get(`/v1/review/product/${id}`);
 
-        console.log("check review", response.data);
         setReview(response.data);
       } catch (error) {
         console.error("Error fetching product:", error);
@@ -297,18 +296,9 @@ const ProductDetail = () => {
                     </View>
                   ))}
 
-                {/* Nút xem thêm & thêm đánh giá */}
-                <View style={styles.reviewActions}>
-                  {!showReviewForm && (
-                    <TouchableOpacity
-                      onPress={() => setShowReviewForm(true)}
-                      style={styles.actionButton}
-                    >
-                      <Text style={styles.actionText}>➕ Thêm đánh giá</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {review.length > visibleReviews && (
+                {/* Nút xem thêm nếu còn đánh giá chưa hiển thị */}
+                {review.length > visibleReviews && (
+                  <View style={styles.reviewActions}>
                     <TouchableOpacity
                       onPress={() => setVisibleReviews((prev) => prev + 2)}
                       style={styles.actionButton}
@@ -317,36 +307,19 @@ const ProductDetail = () => {
                         📖 Xem thêm đánh giá
                       </Text>
                     </TouchableOpacity>
-                  )}
-                </View>
-              </>
-            ) : (
-              <>
-                <Text
-                  style={{
-                    fontStyle: "italic",
-                    color: "#666",
-                    marginBottom: 8,
-                  }}
-                >
-                  Sản phẩm này chưa có đánh giá nào.
-                </Text>
-                {!showReviewForm && (
-                  <TouchableOpacity
-                    onPress={() => setShowReviewForm(true)}
-                    style={styles.actionButton}
-                  >
-                    <Text style={styles.actionText}>➕ Thêm đánh giá</Text>
-                  </TouchableOpacity>
+                  </View>
                 )}
               </>
-            )}
-
-            {/* Hiển thị form khi bấm thêm đánh giá */}
-            {showReviewForm && (
-              <View style={{ marginTop: 12 }}>
-                <ReviewForm productId={product._id} />
-              </View>
+            ) : (
+              <Text
+                style={{
+                  fontStyle: "italic",
+                  color: "#666",
+                  marginBottom: 8,
+                }}
+              >
+                Sản phẩm này chưa có đánh giá nào.
+              </Text>
             )}
           </View>
         </View>
