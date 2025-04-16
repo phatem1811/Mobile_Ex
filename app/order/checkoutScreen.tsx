@@ -85,17 +85,6 @@ const CheckoutScreen: React.FC = () => {
       console.log("Connected to server via WebSocket");
     });
 
-    // socket.on("billCreated", (response) => {
-    //   console.log("Server response:", response);
-    //   setServerResponse(response);
-    //   if (response.status === "success") {
-    //     clearCart();
-    //     navigate("/success");
-    //   } else {
-    //     alert("Error creating bill");
-    //   }
-    // });
-
     return () => {
       socket.off("connect");
       socket.off("billCreated");
