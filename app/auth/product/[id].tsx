@@ -10,7 +10,7 @@ import {
   ScrollView,
   TextInput,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import api from "../../../api";
 import { useCart } from "../../../hooks/useCart";
@@ -19,6 +19,7 @@ import ReviewForm from "./ReviewForm";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/vi";
+import RelatedProduct from "./RelatedProduct";
 
 import { FontAwesome } from "@expo/vector-icons";
 
@@ -33,9 +34,18 @@ type Review = {
   comment: string;
   createdAt: string;
 };
+type Product = {
+  _id: string;
+  name: string;
+  picture: string;
+  currentPrice: number;
+  price: number;
+  category: { name: string };
+};
 const ProductDetail = () => {
   const { id } = useLocalSearchParams();
   const [product, setProduct] = useState<any>(null);
+  const [productRelated, setProductRelated] = useState<Product[]>([]);
   const [review, setReview] = useState<any>(null);
   const [quantity, setQuantity] = useState<string>("1");
   const [selectedOptions, setSelectedOptions] = useState<{
@@ -45,7 +55,7 @@ const ProductDetail = () => {
   const [visibleReviews, setVisibleReviews] = useState(2);
   const router = useRouter();
   const { cart, addToCart } = useCart();
-
+  const navigation = useNavigation();
   useEffect(() => {
     const fetchrReview = async () => {
       try {
@@ -71,7 +81,19 @@ const ProductDetail = () => {
         console.error("Error fetching product:", error);
       }
     };
+    const fetchProductRelated = async () => {
+      try {
+        const response = await api.get(
+          `v1/recommendations/products/related/${id}`
+        );
+        setProductRelated(response.data.relatedProducts ?? []);
+      } catch (error) {
+        console.error("Error fetching product:", error);
+        setProductRelated([]);
+      }
+    };
     fetchProduct();
+    fetchProductRelated();
     fetchrReview();
   }, [id]);
 
@@ -83,6 +105,9 @@ const ProductDetail = () => {
     );
   }
 
+  const handlePressProduct = (item: Product) => {
+    router.push(`/auth/product/${item._id}`);
+  };
   const formatPrice = (price: number) => {
     return price?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " đ";
   };
@@ -263,6 +288,27 @@ const ProductDetail = () => {
               ))}
             </View>
           ))}
+          <View style={{}}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "bold",
+                marginBottom: 8,
+              }}
+            >
+              Sản phẩm liên quan
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {productRelated.map((item) => (
+                <RelatedProduct
+                  key={item._id}
+                  item={item}
+                  onPress={handlePressProduct}
+                  addToCart={addToCart}
+                />
+              ))}
+            </ScrollView>
+          </View>
 
           <View style={styles.reviewSection}>
             <Text style={styles.reviewTitle}>Đánh giá sản phẩm</Text>
