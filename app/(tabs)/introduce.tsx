@@ -7,7 +7,8 @@ import {
   Button,
   Alert,
   Platform,
-  ActivityIndicator ,
+  Modal,
+  ActivityIndicator,
 } from "react-native";
 import { TextInput, TouchableOpacity } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -19,9 +20,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Burnt from "burnt";
 import api from "../../api";
-import  { uploadImageToCloudinary } from"../../UploadToCloud"
+import { uploadImageToCloudinary } from "../../UploadToCloud";
 import axios from "axios";
 import { launchImageLibrary } from "react-native-image-picker";
+
+interface PasswordForm {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
 
 const IntroPage = () => {
   const [token, setToken] = useState<string | null>(null);
@@ -34,6 +41,55 @@ const IntroPage = () => {
 
   const [imageUri, setImageUri] = useState<string | null>(null);
 
+  const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
+  const [passwordForm, setPasswordForm] = useState<PasswordForm>({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  const handlePasswordChange = (key: keyof PasswordForm, value: string) => {
+    setPasswordForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSubmitPasswordChange = async () => {
+    const { currentPassword, newPassword, confirmPassword } = passwordForm;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert("Lỗi", "Mật khẩu mới và xác nhận không khớp.");
+      return;
+    }
+
+    // TODO: Gọi API đổi mật khẩu tại đây
+
+    try {
+      const response = await api.put("/v1/account/profile/change-password", {
+        id: userInfo,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      });
+
+      Alert.alert("Thành công", "Mật khẩu đã được cập nhật.");
+      setShowPasswordModal(false);
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+    } catch (error: any) {
+      Alert.alert(
+        "Lỗi",
+        error.response?.data?.message || "Đổi mật khẩu thất bại."
+      );
+    }
+  };
+
   const [form, setForm] = useState({
     fullname: "",
     phonenumber: "",
@@ -41,7 +97,7 @@ const IntroPage = () => {
     address: "",
     point: "",
     birthdate: new Date(),
-    avatar: ""
+    avatar: "",
   });
 
   useFocusEffect(
@@ -75,7 +131,7 @@ const IntroPage = () => {
             avatar: response.data.avatar || "",
             birthdate: parsedBirthday,
           });
-          if(response.data.avatar) setImageUri(response.data.avatar);
+          if (response.data.avatar) setImageUri(response.data.avatar);
           console.log("check form:", form);
         }
       };
@@ -115,7 +171,7 @@ const IntroPage = () => {
         fullname: form.fullname,
         address: form.address,
         birthdate: form.birthdate.toISOString(),
-        avatar: imageUri
+        avatar: imageUri,
       });
 
       isSuccess = true;
@@ -162,24 +218,14 @@ const IntroPage = () => {
     router.push("/(tabs)/login");
   };
 
-  // const requestPermissions = async () => {
-  //   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  //   if (status !== 'granted') {
-  //     alert('Sorry, we need camera roll permissions to make this work!');
-  //   }
-  // };
-  
-  // useEffect(() => {
-  //   requestPermissions();
-  // }, []);
   const pickImage = async () => {
     const action = await Alert.alert(
-      'Chọn ảnh',
-      'Chọn ảnh từ thư viện hoặc chụp ảnh mới',
+      "Chọn ảnh",
+      "Chọn ảnh từ thư viện hoặc chụp ảnh mới",
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: "Hủy", style: "cancel" },
         {
-          text: 'Chọn ảnh từ thư viện',
+          text: "Chọn ảnh từ thư viện",
           onPress: async () => {
             const result = await ImagePicker.launchImageLibraryAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -187,15 +233,17 @@ const IntroPage = () => {
             });
             if (!result.canceled && result.assets) {
               const imageUri = result.assets[0].uri;
-              console.log('Selected image from library:', imageUri);
+              console.log("Selected image from library:", imageUri);
 
               // Bắt đầu tải ảnh lên
               setLoading(true);
               try {
-                const uploadedImageUrl = await uploadImageToCloudinary(imageUri);
+                const uploadedImageUrl = await uploadImageToCloudinary(
+                  imageUri
+                );
                 setImageUri(uploadedImageUrl);
                 setIsFormChanged(true);
-                console.log('Image uploaded to Cloudinary:', uploadedImageUrl);
+                console.log("Image uploaded to Cloudinary:", uploadedImageUrl);
               } catch (error) {
                 console.error("Upload failed", error);
               } finally {
@@ -205,11 +253,15 @@ const IntroPage = () => {
           },
         },
         {
-          text: 'Chụp ảnh',
+          text: "Chụp ảnh",
           onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync();
-            if (status !== 'granted') {
-              Alert.alert('Permission required', 'Camera permission is required to take photos.');
+            const { status } =
+              await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== "granted") {
+              Alert.alert(
+                "Permission required",
+                "Camera permission is required to take photos."
+              );
               return;
             }
 
@@ -218,15 +270,17 @@ const IntroPage = () => {
             });
             if (!result.canceled && result.assets) {
               const imageUri = result.assets[0].uri;
-              console.log('Selected image from camera:', imageUri);
+              console.log("Selected image from camera:", imageUri);
 
               // Bắt đầu tải ảnh lên
               setLoading(true);
               try {
-                const uploadedImageUrl = await uploadImageToCloudinary(imageUri);
+                const uploadedImageUrl = await uploadImageToCloudinary(
+                  imageUri
+                );
                 setImageUri(uploadedImageUrl);
                 setIsFormChanged(true);
-                console.log('Image uploaded to Cloudinary:', uploadedImageUrl);
+                console.log("Image uploaded to Cloudinary:", uploadedImageUrl);
               } catch (error) {
                 console.error("Upload failed", error);
               } finally {
@@ -265,21 +319,23 @@ const IntroPage = () => {
       {/* Avatar */}
 
       <View style={{ alignItems: "center", marginBottom: 20 }}>
-      <TouchableOpacity onPress={pickImage}>
-        {loading ? (
-          // Hiển thị Loading Spinner khi đang upload
-          <ActivityIndicator size="large" color="#0000ff" />
-        ) : imageUri ? (
-          <Image
-            source={{ uri: imageUri }}
-            style={{ width: 80, height: 80, borderRadius: 40 }}
-          />
-        ) : (
-          <Avatar.Icon size={80} icon="camera" />
-        )}
-      </TouchableOpacity>
-      <Text style={{ marginTop: 10, color: "#888" }}>Điểm của bạn: {form.point} điểm</Text>
-    </View>
+        <TouchableOpacity onPress={pickImage}>
+          {loading ? (
+            // Hiển thị Loading Spinner khi đang upload
+            <ActivityIndicator size="large" color="#0000ff" />
+          ) : imageUri ? (
+            <Image
+              source={{ uri: imageUri }}
+              style={{ width: 80, height: 80, borderRadius: 40 }}
+            />
+          ) : (
+            <Avatar.Icon size={80} icon="camera" />
+          )}
+        </TouchableOpacity>
+        <Text style={{ marginTop: 10, color: "#888" }}>
+          Điểm của bạn: {form.point} điểm
+        </Text>
+      </View>
       <Text style={{ fontSize: 14, color: "#777" }}>Họ và tên</Text>
       {/* Tên */}
       <TextInput
@@ -287,14 +343,14 @@ const IntroPage = () => {
           fontSize: 18,
           fontWeight: "bold",
           marginBottom: 10,
-          borderBottomWidth: 1, // Gạch chân toàn dòng
+          borderBottomWidth: 1, 
           borderBottomColor: "black",
         }}
-        value={form.fullname} // Gán giá trị từ state
+        value={form.fullname} 
         onChangeText={(text) => handleChange("fullname", text)}
       />
 
-      {/* Số điện thoại */}
+
       <Text style={{ fontSize: 14, color: "#777" }}>Số điện thoại</Text>
 
       <View
@@ -319,7 +375,7 @@ const IntroPage = () => {
             marginBottom: 5,
             color: "#C0C0C0",
           }}
-          value={form.phonenumber} // Gán giá trị từ state
+          value={form.phonenumber} 
           onChangeText={(text) => handleChange("phonenumber", text)}
         />
       </View>
@@ -388,10 +444,72 @@ const IntroPage = () => {
           maximumDate={new Date()}
         />
       )}
+      <View style={styles.buttonContainer}>
+        <Button
+          title="Đổi mật khẩu"
+          onPress={() => setShowPasswordModal(true)}
+          color="#2196F3"
+        />
+      </View>
+      <Modal
+        visible={showPasswordModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPasswordModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Đổi mật khẩu</Text>
 
-      {/* <View style={styles.buttonContainer}>
-        <Button title="Cập nhật" onPress={handleLogout} color="#4CAF50" />
-      </View> */}
+            <TextInput
+              placeholder="Mật khẩu hiện tại"
+              secureTextEntry
+              value={passwordForm.currentPassword}
+              onChangeText={(text) =>
+                handlePasswordChange("currentPassword", text)
+              }
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="Mật khẩu mới"
+              secureTextEntry
+              value={passwordForm.newPassword}
+              onChangeText={(text) => handlePasswordChange("newPassword", text)}
+              style={styles.input}
+            />
+            <TextInput
+              placeholder="Xác nhận mật khẩu mới"
+              secureTextEntry
+              value={passwordForm.confirmPassword}
+              onChangeText={(text) =>
+                handlePasswordChange("confirmPassword", text)
+              }
+              style={styles.input}
+            />
+
+            <View style={styles.modalButtonRow}>
+              <Button
+                title="Hủy"
+                onPress={() => {
+                  setShowPasswordModal(false);
+                  setPasswordForm({
+                    currentPassword: "",
+                    newPassword: "",
+                    confirmPassword: "",
+                  });
+                }}
+                color="#aaa"
+              />
+              <Button
+                title="Xác nhận"
+                onPress={handleSubmitPasswordChange}
+                color="#4CAF50"
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.buttonContainer}>
         <Button
           title="Cập nhật"
@@ -403,14 +521,6 @@ const IntroPage = () => {
       <View style={styles.buttonContainer}>
         <Button title="Đăng xuất" onPress={handleLogout} color="#FF5722" />
       </View>
-
-      {/* Nút lưu */}
-      {/* <Button mode="contained" style={{ marginTop: 20 }}>
-        Đăng xuất
-      </Button>
-      <Button mode="contained" style={{ marginTop: 20 }}>
-        Cập nhật
-      </Button> */}
     </View>
   );
 };
@@ -460,6 +570,35 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderRadius: 8,
     overflow: "hidden",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    width: "85%",
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  input: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#ccc",
+    marginBottom: 15,
+    paddingVertical: 5,
+    fontSize: 16,
+  },
+  modalButtonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
   },
 });
 
