@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Image,
   ScrollView,
+  Modal,
 } from "react-native";
 import {
   SafeAreaView,
@@ -23,6 +24,9 @@ import api from "../../api";
 import socket from "../../socket";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
+import * as Linking from "expo-linking";
+
+import { createURL } from "expo-linking";
 
 interface UserProfile {
   _id: string;
@@ -79,6 +83,51 @@ const CheckoutScreen: React.FC = () => {
   );
   const [token, setToken] = useState<string | null>(null);
   const data = useLocalSearchParams();
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const onPressConfirmOrder = () => {
+    if (!address || !phone || !address) {
+      Alert.alert("Vui lòng nhập đầy đủ thông tin nhận hàng");
+      return;
+    }
+    setModalVisible(true);
+  };
+  const handleCheckoutOnline = async () => {
+    setModalVisible(false);
+    handleCheckout();
+  };
+
+  const handleCheckoutCOD = async () => {
+    if (!address || !phone || !address) {
+      Alert.alert("Vui lòng nhập đầy đủ thông tin nhận hàng");
+      return;
+    }
+    setModalVisible(false);
+    const billData = {
+      fullName: name,
+      address_shipment: address,
+      phone_shipment: phone,
+      ship: shippingFee,
+      total_price: total,
+      pointDiscount: points,
+      isPaid: false,
+      voucher: voucherId,
+      lineItems: cart.map((item) => ({
+        product: item.id,
+        quantity: item.quantity,
+        subtotal: item.price * item.quantity,
+        options: item.options.map((option) => ({
+          optionId: option.optionId,
+          choiceId: option.choiceId,
+          addPrice: option.addPrice,
+        })),
+      })),
+      note: note || "",
+      ...(userProfile?._id ? { account: userProfile._id } : {}),
+    };
+    await AsyncStorage.setItem("pendingOrder", JSON.stringify(billData));
+    createBillFromSocket();
+  };
 
   useEffect(() => {
     socket.on("connect", () => {
@@ -90,6 +139,146 @@ const CheckoutScreen: React.FC = () => {
       socket.off("billCreated");
     };
   }, []);
+
+  const createBillFromSocket = useCallback(async () => {
+    const billDataJson = await AsyncStorage.getItem("pendingOrder");
+    if (!billDataJson) {
+      Alert.alert("Lỗi", "Không tìm thấy dữ liệu đơn hàng");
+      return;
+    }
+    const billData = JSON.parse(billDataJson);
+
+    socket.emit("createBill", billData);
+
+    socket.on("billCreated", async (response) => {
+      if (response.status === "success") {
+        await AsyncStorage.removeItem("pendingOrder");
+        await clearCart();
+
+        router.replace({
+          pathname: "/order/orderDetailScreen",
+          params: { orderId: response.data._id },
+        });
+      } else {
+        Alert.alert("Đặt hàng thất bại", response.message);
+      }
+    });
+  }, [router]);
+
+  const handledInitialURL = useRef(false);
+
+  const processDeepLink = useCallback(
+    ({ url }) => {
+      const parsed = Linking.parse(url);
+      const path = parsed.path;
+      console.log("check path", path);
+
+      if (path === "order-success") {
+        console.log("✅ Detected order-success");
+        createBillFromSocket();
+      } else if (path === "order-cancel") {
+        console.log("❌ Detected order-cancel");
+        router.push("/order/checkoutScreen");
+        Alert.alert("Thanh toán bị hủy");
+      }
+    },
+    [router, createBillFromSocket]
+  );
+
+  // Ref giữ hàm luôn mới nhất
+  const processDeepLinkRef = useRef(processDeepLink);
+
+  useEffect(() => {
+    processDeepLinkRef.current = processDeepLink;
+  }, [processDeepLink]);
+
+  const handledUrls = useRef(new Set());
+const listenerRef = useRef(null);
+  useEffect(() => {
+    if (listenerRef.current) return;
+    console.log("Add Linking listener");
+    const subscription = Linking.addEventListener("url", (event) => {
+      console.log("Received event URL:", event.url);
+      if (handledUrls.current.has(event.url)) {
+        console.log("Duplicate URL event, ignore:", event.url);
+        return;
+      }
+      console.log("Add URL to handledUrls:", event.url);
+      handledUrls.current.add(event.url);
+
+      handledInitialURL.current = true;
+      console.log("Process URL:", event.url);
+      processDeepLinkRef.current(event);
+    });
+
+    Linking.getInitialURL().then((url) => {
+      if (url && !handledInitialURL.current) {
+        console.log("check 2");
+        processDeepLinkRef.current({ url });
+      }
+    });
+
+    return () => {
+      console.log("Remove Linking listener");
+      subscription.remove();
+      socket.off("billCreated");
+    };
+  }, []);
+
+  const handleCheckout = async () => {
+    const billData = {
+      fullName: name,
+      address_shipment: address,
+      phone_shipment: phone,
+      ship: shippingFee,
+      total_price: total,
+      pointDiscount: points,
+      isPaid: true,
+      voucher: voucherId,
+      lineItems: cart.map((item) => ({
+        product: item.id,
+        quantity: item.quantity,
+        subtotal: item.price * item.quantity,
+        options: item.options.map((option) => ({
+          optionId: option.optionId,
+          choiceId: option.choiceId,
+          addPrice: option.addPrice,
+        })),
+      })),
+      note: note || "",
+      ...(userProfile?._id ? { account: userProfile._id } : {}),
+    };
+
+    try {
+      // Lưu đơn hàng tạm thời
+      await AsyncStorage.setItem("pendingOrder", JSON.stringify(billData));
+
+      // Tạo URL trả về và hủy
+      const returnUrl = Linking.createURL("order-success");
+      const cancelUrl = Linking.createURL("order-cancel");
+
+      // Gọi API tạo payment link
+      const res = await api.post("/create-payment-link", {
+        amount: 2000, // có thể thay bằng total hoặc số tiền thực tế
+        returnUrl,
+        cancelUrl,
+      });
+
+      const data = res.data;
+
+      if (data.paymentLink) {
+        // Mở link thanh toán
+        Linking.openURL(data.paymentLink);
+      } else {
+        Alert.alert(
+          "Không thể tạo liên kết thanh toán",
+          data.message || "Lỗi không xác định"
+        );
+      }
+    } catch (error) {
+      Alert.alert("Lỗi", "Không thể thanh toán");
+    }
+  };
 
   useEffect(() => {
     if (data.address && typeof data.address === "string") {
@@ -117,11 +306,11 @@ const CheckoutScreen: React.FC = () => {
           longitudeDelta: 0.01,
         });
 
-        // Lấy địa chỉ tương ứng với vị trí hiện tại
-        fetchAddress(
-          currentLocation.coords.latitude,
-          currentLocation.coords.longitude
-        );
+        // // Lấy địa chỉ tương ứng với vị trí hiện tại
+        // fetchAddress(
+        //   currentLocation.coords.latitude,
+        //   currentLocation.coords.longitude
+        // );
         setLoading(false);
       })();
     }
@@ -140,6 +329,8 @@ const CheckoutScreen: React.FC = () => {
           });
           if (response.data) {
             setUserProfile(response.data);
+            setName(response.data.fullname);
+            setPhone(response.data.phonenumber);
           }
         } else {
           setUserProfile(null);
@@ -150,97 +341,40 @@ const CheckoutScreen: React.FC = () => {
     }, [])
   );
 
-  const fetchAddress = async (latitude: number, longitude: number) => {
-    try {
-      const response = await Promise.race([
-        Location.reverseGeocodeAsync({ latitude, longitude }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Request Timeout")), 5000)
-        ),
-      ]);
-
-      if (Array.isArray(response) && response.length > 0) {
-        let formattedAddress = `${response[0].name}, ${response[0].street}, ${response[0].city}, ${response[0].region}`;
-        setAddress(formattedAddress);
-      } else {
-        setAddress("Không tìm thấy địa chỉ!");
-      }
-    } catch (error) {
-      console.error("Lỗi lấy địa chỉ:", error);
-      setAddress("Lỗi lấy địa chỉ, vui lòng thử lại!");
-    }
-  };
-
   const handlePointsChange = (inputValue: string) => {
     const value = parseInt(inputValue) || 0;
     const userPoints = userProfile?.point || 0;
 
-    if (value > userPoints) {
-      setPointsError("Số điểm nhập vượt quá số điểm bạn đang có");
-      setPoints(userPoints);
-      setPointsDiscount(userPoints);
-    } else {
-      setPointsError("");
-      setPoints(value);
-      setPointsDiscount(value);
-    }
-  };
+    const currentTotal = subtotal + shippingFee - discount;
 
-  const shippingFee = 10000;
+    let finalValue = value;
+    let error = "";
+
+    if (value > userPoints) {
+      error = "Số điểm nhập vượt quá số điểm bạn đang có";
+      finalValue = userPoints;
+    } else if (value > currentTotal) {
+      error = "Số điểm nhập vượt quá tổng tiền thanh toán";
+      finalValue = currentTotal;
+    }
+
+    setPoints(finalValue);
+    setPointsDiscount(finalValue);
+    setPointsError(error);
+  };
+  const distance = parseFloat(data.distance as string);
+
+  const shippingFee =
+    isNaN(distance) || !distance
+      ? 0
+      : distance <= 2
+      ? 15000
+      : 15000 + Math.ceil(distance - 2) * 4000;
   const subtotal = cart.reduce(
     (total, item) => total + item.price * item.quantity,
     0
   );
   const total = subtotal + shippingFee - discount - pointsDiscount;
-
-  const handleCheckout = () => {
-    if (!address || !phone) {
-      Alert.alert("Vui lòng nhập đầy đủ thông tin nhận hàng");
-      return;
-    }
-    const billData = {
-      fullName: name,
-      address_shipment: address,
-      phone_shipment: phone,
-      ship: shippingFee,
-      total_price: total,
-      pointDiscount: points,
-      isPaid: false,
-      voucher: voucherId,
-      lineItems: cart.map((item) => ({
-        product: item.id,
-        quantity: item.quantity,
-        subtotal: item.price * item.quantity,
-        options: item.options.map((option) => ({
-          optionId: option.optionId,
-          choiceId: option.choiceId,
-          addPrice: option.addPrice,
-        })),
-      })),
-      note: note || "",
-      ...(userProfile?._id ? { account: userProfile._id } : {}),
-    };
-
-    socket.emit("createBill", billData);
-
-    // Lắng nghe phản hồi từ server
-    socket.on("billCreated", async (response) => {
-      if (response.status === "success") {
-        console.log("Đặt hàng thành công, ID đơn hàng:", response.data._id);
-
-        await clearCart();
-
-        router.push({
-          pathname: "/order/orderDetailScreen",
-          params: {
-            orderId: response.data._id, // Lấy ID từ server
-          },
-        });
-      } else {
-        Alert.alert("Đặt hàng thất bại", response.message);
-      }
-    });
-  };
 
   const getChoiceName = async (optionId: string, choiceId: string) => {
     try {
@@ -340,7 +474,14 @@ const CheckoutScreen: React.FC = () => {
         <View style={styles.textContainer}>
           <Text style={styles.title}>Vị Trí giao hàng</Text>
           <Text style={styles.subtitle} numberOfLines={1}>
-            {loading ? "Đang lấy vị trí..." : address ?? "Chưa có địa chỉ"}
+            {address ? (
+              address
+            ) : (
+              <>
+                Vui lòng chọn địa chỉ giao hàng{" "}
+                <Text style={{ color: "red" }}>*</Text>
+              </>
+            )}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color="#999" />
@@ -415,7 +556,7 @@ const CheckoutScreen: React.FC = () => {
       ) : null}
       {userProfile && (
         <>
-          <Text>Nhập số điểm quy đổi:</Text>
+          <Text>Điểm giảm giá hiện có: {userProfile.point}</Text>
           <TextInput
             placeholder="Nhập số điểm quy đổi"
             value={points.toString()}
@@ -423,9 +564,11 @@ const CheckoutScreen: React.FC = () => {
             keyboardType="numeric"
             style={[styles.inputPoint, pointsError ? styles.inputError : null]}
           />
+          {pointsError ? (
+            <Text style={{ color: "red" }}>{pointsError}</Text>
+          ) : null}
         </>
       )}
-      {pointsError ? <Text style={styles.errorText}>{pointsError}</Text> : null}
     </>
   );
 
@@ -446,7 +589,7 @@ const CheckoutScreen: React.FC = () => {
           <Text>{subtotal.toLocaleString()}₫</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text>Phí vận chuyển:</Text>
+          <Text>Phí vận chuyển: {data.distance} km</Text>
           <Text>{shippingFee.toLocaleString()}₫</Text>
         </View>
         <View style={styles.summaryRow}>
@@ -465,10 +608,43 @@ const CheckoutScreen: React.FC = () => {
         </View>
         <TouchableOpacity
           style={styles.checkoutButton}
-          onPress={handleCheckout}
+          onPress={onPressConfirmOrder} // thay thế ở đây
         >
           <Text style={styles.checkoutButtonText}>Xác nhận đặt hàng</Text>
         </TouchableOpacity>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Chọn phương thức thanh toán</Text>
+
+              <TouchableOpacity
+                style={styles.paymentOption}
+                onPress={handleCheckoutOnline}
+              >
+                <Text>Thanh toán online</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.paymentOption}
+                onPress={handleCheckoutCOD}
+              >
+                <Text>Thanh toán khi nhận hàng (COD)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.paymentOption, styles.cancelButton]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={{ color: "red" }}>Hủy</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -646,6 +822,35 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginVertical: 5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 10,
+    width: 300,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontWeight: "bold",
+    fontSize: 18,
+    marginBottom: 20,
+  },
+  paymentOption: {
+    paddingVertical: 12,
+    width: "100%",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderColor: "#ddd",
+  },
+  cancelButton: {
+    borderBottomWidth: 0,
+    marginTop: 10,
   },
 });
 

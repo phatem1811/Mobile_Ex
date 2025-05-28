@@ -34,7 +34,7 @@ const SearchLocationScreen: React.FC = () => {
   const router = useRouter();
   const [selectedLocation, setSelectedLocation] =
     useState<SelectedLocation | null>(null);
-
+  const fixedLocation = { latitude: 10.850317, longitude: 106.772936 };
   const fetchAutocomplete = async (text: string) => {
     if (text.length < 3) return;
     try {
@@ -67,6 +67,25 @@ const SearchLocationScreen: React.FC = () => {
   // Sử dụng debounce để hạn chế số lần gọi API
   const debouncedFetch = useCallback(debounce(fetchAutocomplete, 500), []);
 
+  const getDistanceFromLatLonInKm = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number => {
+    const R = 6371; // Bán kính Trái Đất (km)
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c;
+    return d;
+  };
   const handleInputChange = (text: string) => {
     setQuery(text);
     debouncedFetch(text);
@@ -80,22 +99,30 @@ const SearchLocationScreen: React.FC = () => {
     };
     setSelectedLocation(selected);
 
-        router.push({
-          pathname: "/order/checkoutScreen",
-          params: {
-            address: selected.display_name,
-    
-          },
-      
-        });
+    const distance = getDistanceFromLatLonInKm(
+      fixedLocation.latitude,
+      fixedLocation.longitude,
+      selected.lat,
+      selected.lon
+    );
+    if (distance > 30) {
+      alert("⚠️ Vị trí giao hàng vượt quá phạm vi 30km.");
+      return;
+    }
+
+    router.push({
+      pathname: "/order/checkoutScreen",
+      params: {
+        address: selected.display_name,
+        distance: parseFloat(distance.toFixed(2)),
+      },
+    });
+
     setSuggestions([]);
   };
 
-
-
   return (
     <SafeAreaView style={styles.container}>
-
       <TextInput
         style={styles.input}
         placeholder="Nhập địa chỉ..."
@@ -119,8 +146,10 @@ const SearchLocationScreen: React.FC = () => {
         />
       )}
 
-
-      <TouchableOpacity style={styles.mapButton}  onPress={() =>router.push("/order/mapScreen")}>
+      <TouchableOpacity
+        style={styles.mapButton}
+        onPress={() => router.push("/order/mapScreen")}
+      >
         <Text style={styles.mapButtonText}>Chọn vị trí từ bản đồ</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -128,54 +157,54 @@ const SearchLocationScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: "#fff",
-    },
-    input: {
-      height: 45,
-      marginTop: 20,
-      backgroundColor: "#fff",
-      borderRadius: 10,
-      paddingHorizontal: 15,
-      fontSize: 16,
-      borderWidth: 1,
-      borderColor: "#ddd",
-      marginBottom: 10,
-      alignSelf: "center",
-      width: "90%", // Chỉ chiếm 90% chiều rộng
-    },
-    suggestionsList: {
-      backgroundColor: "#fff",
-      borderRadius: 10,
-      maxHeight: 200,
-      marginBottom: 10,
-      alignSelf: "center",
-      width: "90%",
-    },
-    suggestionItem: {
-      padding: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: "#eee",
-    },
-    suggestionText: {
-      fontSize: 15,
-      color: "#333",
-    },
-    selectedLocationCard: {
-      padding: 15,
-      backgroundColor: "#e0f7fa",
-      borderRadius: 10,
-      marginBottom: 20,
-      alignItems: "center",
-      alignSelf: "center",
-      width: "90%",
-    },
-    selectedLocationText: {
-      fontSize: 16,
-      color: "#00796b",
-    },
-      // Nút được cố định ở cuối màn hình
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  input: {
+    height: 45,
+    marginTop: 20,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    marginBottom: 10,
+    alignSelf: "center",
+    width: "90%", // Chỉ chiếm 90% chiều rộng
+  },
+  suggestionsList: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    maxHeight: 200,
+    marginBottom: 10,
+    alignSelf: "center",
+    width: "90%",
+  },
+  suggestionItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  suggestionText: {
+    fontSize: 15,
+    color: "#333",
+  },
+  selectedLocationCard: {
+    padding: 15,
+    backgroundColor: "#e0f7fa",
+    borderRadius: 10,
+    marginBottom: 20,
+    alignItems: "center",
+    alignSelf: "center",
+    width: "90%",
+  },
+  selectedLocationText: {
+    fontSize: 16,
+    color: "#00796b",
+  },
+  // Nút được cố định ở cuối màn hình
   mapButton: {
     position: "absolute",
     bottom: 20,
@@ -189,33 +218,32 @@ const styles = StyleSheet.create({
     zIndex: 999, // Đảm bảo nút nằm trên các thành phần khác
     elevation: 10,
   },
-    mapButtonText: {
-      color: "#fff",
-      fontSize: 16,
-      fontWeight: "bold",
-    },
-    headerContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: 16,
-      marginTop: 40,
-      paddingBottom: 12,
-      borderBottomWidth: 0.5,
-      borderBottomColor: "#ccc",
-    },
-    headerTextWrapper: {
-      flex: 1,
-      alignItems: "center",
-    },
-    headerTitle: {
-      fontSize: 16,
-      fontWeight: "600",
-    },
-    headerSubtitle: {
-      fontSize: 12,
-      color: "#666",
-    },
-  });
-  
+  mapButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  headerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginTop: 40,
+    paddingBottom: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#ccc",
+  },
+  headerTextWrapper: {
+    flex: 1,
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: "#666",
+  },
+});
 
 export default SearchLocationScreen;
