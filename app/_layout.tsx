@@ -84,7 +84,7 @@ export default function RootLayout() {
             options={{ headerShown: false }}
           />
 
-          <Stack.Screen name="+not-found" />
+          <Stack.Screen name="+loadinggg" />
         </Stack>
       )}
       <StatusBar style="auto" />

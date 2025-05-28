@@ -1,22 +1,46 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
-import MapView, { PROVIDER_GOOGLE, MapPressEvent, Marker } from "react-native-maps";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+} from "react-native";
+import MapView, {
+  PROVIDER_GOOGLE,
+  MapPressEvent,
+  Marker,
+  Polyline,
+} from "react-native-maps";
 import * as Location from "expo-location";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 
 export default function AddressSearchScreen() {
-  const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [location, setLocation] =
+    useState<Location.LocationObjectCoords | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-    const router = useRouter();
   const [region, setRegion] = useState({
     latitude: 10.7769,
     longitude: 106.7009,
     latitudeDelta: 0.02,
     longitudeDelta: 0.02,
   });
+
+  const fixedLocation = { latitude: 10.850317, longitude: 106.772936 }; // ví dụ địa điểm cố định
+  const [routeCoords, setRouteCoords] = useState<
+    Array<{ latitude: number; longitude: number }>
+  >([]);
+  const [distanceText, setDistanceText] = useState<string | null>(null);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [isTooFar, setIsTooFar] = useState(false);
+
+  const router = useRouter();
 
   useEffect(() => {
     (async () => {
@@ -28,30 +52,60 @@ export default function AddressSearchScreen() {
       }
 
       let currentLocation = await Location.getCurrentPositionAsync({});
-      setLocation(currentLocation.coords);
+      const coords = currentLocation.coords;
+
+      setLocation(coords);
       setSelectedLocation({
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
       });
       setRegion({
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       });
 
-      // Lấy địa chỉ tương ứng với vị trí hiện tại
-      fetchAddress(currentLocation.coords.latitude, currentLocation.coords.longitude);
+      fetchAddress(coords.latitude, coords.longitude);
+      fetchDistance(coords.latitude, coords.longitude);
+      fetchRoute(coords.latitude, coords.longitude);
       setLoading(false);
     })();
   }, []);
+  const fetchRoute = async (lat: number, lng: number) => {
+    const from = `${lng},${lat}`;
+    const to = `${fixedLocation.longitude},${fixedLocation.latitude}`;
+    const apiKey = "pk.2b0fee32045c1896341b402c43932395";
+
+    try {
+      const res = await fetch(
+        `https://us1.locationiq.com/v1/directions/driving/${from};${to}?key=${apiKey}&overview=full&geometries=geojson`
+      );
+      const data = await res.json();
+
+      if (data.routes?.length > 0) {
+        const coords = data.routes[0].geometry.coordinates.map(
+          ([lon, lat]: [number, number]) => ({
+            latitude: lat,
+            longitude: lon,
+          })
+        );
+        setRouteCoords(coords);
+      }
+    } catch (err) {
+      console.error("Lỗi khi vẽ tuyến đường:", err);
+    }
+  };
+
   const fetchAddress = async (latitude: number, longitude: number) => {
     try {
       const response = await Promise.race([
         Location.reverseGeocodeAsync({ latitude, longitude }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Request Timeout")), 5000)) // Timeout sau 5 giây
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Request Timeout")), 5000)
+        ),
       ]);
-  
+
       if (Array.isArray(response) && response.length > 0) {
         let formattedAddress = `${response[0].name}, ${response[0].street}, ${response[0].city}, ${response[0].region}`;
         setAddress(formattedAddress);
@@ -66,7 +120,6 @@ export default function AddressSearchScreen() {
 
   const handleMapPress = (event: MapPressEvent) => {
     const { coordinate } = event.nativeEvent;
-    console.log("Vị trí mới:", coordinate);
     setSelectedLocation(coordinate);
     setRegion({
       latitude: coordinate.latitude,
@@ -75,17 +128,51 @@ export default function AddressSearchScreen() {
       longitudeDelta: 0.005,
     });
 
-    // Lấy địa chỉ mới
     fetchAddress(coordinate.latitude, coordinate.longitude);
+    fetchDistance(coordinate.latitude, coordinate.longitude);
+    fetchRoute(coordinate.latitude, coordinate.longitude);
+  };
+
+  const fetchDistance = async (lat: number, lng: number) => {
+    const from = `${lng},${lat}`;
+    const to = `${fixedLocation.longitude},${fixedLocation.latitude}`;
+    const apiKey = "pk.2b0fee32045c1896341b402c43932395";
+
+    try {
+      const response = await fetch(
+        `https://us1.locationiq.com/v1/directions/driving/${from};${to}?key=${apiKey}&overview=false`
+      );
+      const data = await response.json();
+
+      if (data.routes && data.routes.length > 0) {
+        const distanceInMeters = data.routes[0].distance;
+        const durationInSeconds = data.routes[0].duration;
+
+        const distanceInKm = parseFloat((distanceInMeters / 1000).toFixed(2));
+        setDistance(distanceInKm);
+        const formattedDistance = distanceInKm.toFixed(2);
+        const durationInMin = Math.ceil(durationInSeconds / 60);
+
+        setDistanceText(`${formattedDistance} km (${durationInMin} phút)`);
+        setIsTooFar(distanceInKm > 30);
+      } else {
+        setDistanceText("Không tìm thấy đường đi.");
+        setIsTooFar(false);
+      }
+    } catch (error) {
+      console.error("Lỗi khi lấy quãng đường:", error);
+      setDistanceText("Không thể tính khoảng cách.");
+      setIsTooFar(false);
+    }
   };
 
   const handleSelectLocation = () => {
-    console.log("Địa điểm đã chọn:", selectedLocation, "Địa chỉ:", address);
+    if (!selectedLocation || isTooFar) return;
     router.push({
       pathname: "/order/checkoutScreen",
       params: {
         address: address,
-
+        distance: distance,
       },
     });
   };
@@ -119,23 +206,48 @@ export default function AddressSearchScreen() {
             description="Đây là vị trí bạn đã chọn trên bản đồ."
           />
         )}
+        <Marker
+          coordinate={fixedLocation}
+          title="Cửa hàng"
+          description="Địa điểm cố định"
+          pinColor="green"
+        />
+        {routeCoords.length > 0 && (
+          <Polyline
+            coordinates={routeCoords}
+            strokeColor="#1E90FF"
+            strokeWidth={4}
+          />
+        )}
       </MapView>
 
-      {/* Thẻ hiển thị địa chỉ và button chọn */}
       {selectedLocation && (
         <View style={styles.bottomCard}>
           <Text style={styles.addressText}>
-            {address ? address : "Đang lấy địa chỉ..."}
+            {address ?? "Đang lấy địa chỉ..."}
           </Text>
-          <TouchableOpacity style={styles.selectButton} onPress={handleSelectLocation}>
-            <Text style={styles.selectButtonText}>Chọn điểm này</Text>
+          {distanceText && (
+            <Text style={styles.distanceText}>Khoảng cách: {distanceText}</Text>
+          )}
+          {isTooFar && (
+            <Text style={styles.warningText}>
+              ⚠️ Vị trí quá xa (hơn 30km). Không thể giao hàng đến địa điểm này.
+            </Text>
+          )}
+          <TouchableOpacity
+            style={[styles.selectButton, isTooFar && styles.disabledButton]}
+            onPress={handleSelectLocation}
+            disabled={isTooFar}
+          >
+            <Text style={styles.selectButtonText}>
+              {isTooFar ? "Không thể chọn" : "Chọn điểm này"}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
@@ -173,5 +285,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
+  distanceText: {
+    fontSize: 14,
+    color: "gray",
+    marginBottom: 10,
+  },
+  warningText: {
+    color: "red",
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  disabledButton: {
+    backgroundColor: "#ccc",
+  },
 });
-
