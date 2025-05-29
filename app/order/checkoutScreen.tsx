@@ -25,7 +25,6 @@ import socket from "../../socket";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
 import * as Linking from "expo-linking";
-
 import { createURL } from "expo-linking";
 
 interface UserProfile {
@@ -45,6 +44,7 @@ interface UserProfile {
   updatedAt: string;
   __v: number;
 }
+
 const CheckoutScreen: React.FC = () => {
   const navigation = useNavigation();
   const router = useRouter();
@@ -61,8 +61,7 @@ const CheckoutScreen: React.FC = () => {
   const [points, setPoints] = useState(0);
   const [pointsDiscount, setPointsDiscount] = useState(0);
   const [pointsError, setPointsError] = useState<string>("");
-  const [location, setLocation] =
-    useState<Location.LocationObjectCoords | null>(null);
+  const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -78,27 +77,38 @@ const CheckoutScreen: React.FC = () => {
   });
   const [choices, setChoices] = useState<{ [key: string]: any[] }>({});
   const [optionNames, setOptionNames] = useState<{ [key: string]: string }>({});
-  const [userProfile, setUserProfile] = React.useState<UserProfile | null>(
-    null
-  );
+  const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const data = useLocalSearchParams();
   const [modalVisible, setModalVisible] = useState(false);
 
+  // Hàm tính tổng giá cho mỗi sản phẩm (bao gồm giá gốc và giá tùy chọn)
+  const getItemTotalPrice = (item: any) => {
+    const basePrice = item.price || 0;
+    const optionsPrice = item.options
+      ? item.options.reduce((sum: number, option: any) => sum + (option.addPrice || 0), 0)
+      : 0;
+    return (basePrice + optionsPrice) * item.quantity;
+  };
+
+  // Tính subtotal bao gồm giá tùy chọn
+  const subtotal = cart.reduce((total, item) => total + getItemTotalPrice(item), 0);
+
   const onPressConfirmOrder = () => {
-    if (!address || !phone || !address) {
+    if (!address || !phone || !name) {
       Alert.alert("Vui lòng nhập đầy đủ thông tin nhận hàng");
       return;
     }
     setModalVisible(true);
   };
+
   const handleCheckoutOnline = async () => {
     setModalVisible(false);
-    handleCheckout();
+    await handleCheckout();
   };
 
   const handleCheckoutCOD = async () => {
-    if (!address || !phone || !address) {
+    if (!address || !phone || !name) {
       Alert.alert("Vui lòng nhập đầy đủ thông tin nhận hàng");
       return;
     }
@@ -115,7 +125,7 @@ const CheckoutScreen: React.FC = () => {
       lineItems: cart.map((item) => ({
         product: item.id,
         quantity: item.quantity,
-        subtotal: item.price * item.quantity,
+        subtotal: getItemTotalPrice(item), // Cập nhật subtotal bao gồm giá tùy chọn
         options: item.options.map((option) => ({
           optionId: option.optionId,
           choiceId: option.choiceId,
@@ -193,7 +203,7 @@ const CheckoutScreen: React.FC = () => {
   }, [processDeepLink]);
 
   const handledUrls = useRef(new Set());
-const listenerRef = useRef(null);
+  const listenerRef = useRef(null);
   useEffect(() => {
     if (listenerRef.current) return;
     console.log("Add Linking listener");
@@ -238,7 +248,7 @@ const listenerRef = useRef(null);
       lineItems: cart.map((item) => ({
         product: item.id,
         quantity: item.quantity,
-        subtotal: item.price * item.quantity,
+        subtotal: getItemTotalPrice(item), // Cập nhật subtotal bao gồm giá tùy chọn
         options: item.options.map((option) => ({
           optionId: option.optionId,
           choiceId: option.choiceId,
@@ -259,7 +269,7 @@ const listenerRef = useRef(null);
 
       // Gọi API tạo payment link
       const res = await api.post("/create-payment-link", {
-        amount: 2000, // có thể thay bằng total hoặc số tiền thực tế
+        amount: total, // Sử dụng total thực tế
         returnUrl,
         cancelUrl,
       });
@@ -306,11 +316,6 @@ const listenerRef = useRef(null);
           longitudeDelta: 0.01,
         });
 
-        // // Lấy địa chỉ tương ứng với vị trí hiện tại
-        // fetchAddress(
-        //   currentLocation.coords.latitude,
-        //   currentLocation.coords.longitude
-        // );
         setLoading(false);
       })();
     }
@@ -362,18 +367,15 @@ const listenerRef = useRef(null);
     setPointsDiscount(finalValue);
     setPointsError(error);
   };
-  const distance = parseFloat(data.distance as string);
 
+  const distance = parseFloat(data.distance as string);
   const shippingFee =
     isNaN(distance) || !distance
       ? 0
       : distance <= 2
       ? 15000
       : 15000 + Math.ceil(distance - 2) * 4000;
-  const subtotal = cart.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0
-  );
+
   const total = subtotal + shippingFee - discount - pointsDiscount;
 
   const getChoiceName = async (optionId: string, choiceId: string) => {
@@ -404,7 +406,6 @@ const listenerRef = useRef(null);
   const handleApplyVoucher = async () => {
     try {
       const url = `/v1/voucher/getcode?code=${voucher}`;
-      const fullUrl = api.defaults.baseURL + url;
       const response = await api.get(url);
 
       if (response.data && response.data.data) {
@@ -533,7 +534,7 @@ const listenerRef = useRef(null);
                 </View>
               )}
               <Text style={styles.productPrice}>
-                {(item.price * item.quantity).toLocaleString()}₫
+                {getItemTotalPrice(item).toLocaleString()}₫
               </Text>
               <Text style={styles.quantity}>Số lượng: {item.quantity}</Text>
             </View>
@@ -608,7 +609,7 @@ const listenerRef = useRef(null);
         </View>
         <TouchableOpacity
           style={styles.checkoutButton}
-          onPress={onPressConfirmOrder} // thay thế ở đây
+          onPress={onPressConfirmOrder}
         >
           <Text style={styles.checkoutButtonText}>Xác nhận đặt hàng</Text>
         </TouchableOpacity>

@@ -27,10 +27,15 @@ const CartScreen = () => {
     return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " đ";
   };
 
-  const total = cart.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
+  const getItemTotalPrice = (item: any) => {
+    const basePrice = item.price || 0;
+    const optionsPrice = item.options
+      ? item.options.reduce((sum: number, option: any) => sum + (option.addPrice || 0), 0)
+      : 0;
+    return (basePrice + optionsPrice) * item.quantity;
+  };
+
+  const total = cart.reduce((sum, item) => sum + getItemTotalPrice(item), 0);
 
   const getChoiceName = async (optionId: string, choiceId: string) => {
     try {
@@ -120,7 +125,12 @@ const CartScreen = () => {
                   </View>
                 )}
                 <Text style={styles.productPrice}>
-                  {formatPrice(item.price)}
+                  {formatPrice(
+                    (item.price || 0) +
+                      (item.options
+                        ? item.options.reduce((sum: number, option: any) => sum + (option.addPrice || 0), 0)
+                        : 0)
+                  )}
                 </Text>
                 <View style={styles.quantityContainer}>
                   <TouchableOpacity
@@ -155,7 +165,7 @@ const CartScreen = () => {
             <Text style={styles.totalText}>Tổng thanh toán:</Text>
             <Text style={styles.totalPrice}>{formatPrice(total)}</Text>
           </View>
-          <TouchableOpacity style={styles.checkoutButton}  onPress={() =>router.push("/order/checkoutScreen")}>
+          <TouchableOpacity style={styles.checkoutButton} onPress={() => router.push("/order/checkoutScreen")}>
             <Text style={styles.checkoutButtonText}>Mua hàng ({cart.length})</Text>
           </TouchableOpacity>
         </View>
